@@ -36,9 +36,8 @@ class ProductImageInline(admin.TabularInline):
 
 # Admin for Product to manage products and related categories
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('id', 'product_id', 'name', 'category', 'price', 'available', 'created_at', 'updated_at')
+    list_display = ('id', 'product_id', 'name', 'category', 'created_at', 'updated_at')
     search_fields = ('name', 'category__name')
-    list_filter = ('available', 'category')
     inlines = [ProductImageInline]  # Display ProductImage as an inline model
 
 # Admin for Inventory to manage product stock
