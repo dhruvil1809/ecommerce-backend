@@ -20,3 +20,18 @@ class RegisterUserSerializer(serializers.ModelSerializer):
 class LoginUserSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+
+class EmailVerifyCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class VerificationCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=4) 
+
+
+class ForgotPasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    new_password = serializers.CharField(max_length=255, write_only=True)
+    confirm_password = serializers.CharField(max_length=255, write_only=True)

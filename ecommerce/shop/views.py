@@ -13,7 +13,7 @@ class CategoryAPIView(APIView):
     renderer_classes = [CustomRenderer]
 
     def get(self, request):
-        categories = Category.objects.all()
+        categories = Category.objects.filter(deleted=False)
 
         paginator = PageNumberPagination()
         paginator.page_size = 20
@@ -34,7 +34,7 @@ class CategoryAPIView(APIView):
         serializer = CategorySerializer(data=request.data)
         name = request.data.get('name')
 
-        if Category.objects.filter(name=name).exists():
+        if Category.objects.filter(name=name, deleted=False).exists():
             return Response(
                 {
                     "errors": {
@@ -62,7 +62,7 @@ class CategoryAPIView(APIView):
     
     def put(self, request, slug):
         try:
-            category = Category.objects.get(slug=slug)
+            category = Category.objects.get(slug=slug, deleted=False)
         except Category.DoesNotExist:
             return Response(
                 {
@@ -77,7 +77,7 @@ class CategoryAPIView(APIView):
         serializer = CategorySerializer(category, data=request.data, partial=True)
         name = request.data.get('name')
 
-        if Category.objects.filter(name=name).exclude(slug=slug).exists():
+        if Category.objects.filter(name=name, deleted=False).exclude(slug=slug).exists():
             return Response(
                 {
                     "errors": {
@@ -103,13 +103,39 @@ class CategoryAPIView(APIView):
             status=status.HTTP_400_BAD_REQUEST,
         )
     
+    def delete(self, request, slug):
+        try:
+            category = Category.objects.get(slug=slug, deleted=False)
+        except Category.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "category": "Category not found.",
+                        "status_code": status.HTTP_400_BAD_REQUEST
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Soft delete
+        category.deleted = True
+        category.save()
+
+        return Response(
+            {
+                "message": "Category deleted successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK,
+        )
+    
 
 class SubCategoryAPIView(APIView):
     permission_classes = [IsAuthenticated]
     renderer_classes = [CustomRenderer]
 
     def get(self, request):
-        sub_categories = SubCategory.objects.all()
+        sub_categories = SubCategory.objects.filter(deleted=False)
 
         paginator = PageNumberPagination()
         paginator.page_size = 20
@@ -142,7 +168,7 @@ class SubCategoryAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         
-        if SubCategory.objects.filter(name=name).exists():
+        if SubCategory.objects.filter(name=name, deleted=False).exists():
             return Response(
                 {
                     "errors": {
@@ -170,7 +196,7 @@ class SubCategoryAPIView(APIView):
     
     def put(self, request, slug):
         try:
-            sub_category = SubCategory.objects.get(slug=slug)
+            sub_category = SubCategory.objects.get(slug=slug, deleted=False)
         except SubCategory.DoesNotExist:
             return Response(
                 {
@@ -197,7 +223,7 @@ class SubCategoryAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if SubCategory.objects.filter(name=name).exclude(slug=slug).exists():
+        if SubCategory.objects.filter(name=name, deleted=False).exclude(slug=slug).exists():
             return Response(
                 {
                     "errors": {
@@ -223,6 +249,32 @@ class SubCategoryAPIView(APIView):
             status=status.HTTP_400_BAD_REQUEST,
         )
     
+    def delete(self, request, slug):
+        try:
+            sub_category = SubCategory.objects.get(slug=slug, deleted=False)
+        except SubCategory.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "subcategory": "SubCategory not found.",
+                        "status_code": status.HTTP_400_BAD_REQUEST
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Soft delete
+        sub_category.deleted = True
+        sub_category.save()
+
+        return Response(
+            {
+                "message": "SubCategory deleted successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK,
+        )
+    
     
 
 class ProductAPIView(APIView):
@@ -230,7 +282,7 @@ class ProductAPIView(APIView):
     renderer_classes = [CustomRenderer]
 
     def get(self, request):
-        products = Product.objects.all()
+        products = Product.objects.filter(deleted=False)
         
         paginator = PageNumberPagination()
         paginator.page_size = 20
@@ -253,7 +305,7 @@ class ProductAPIView(APIView):
         sub_category_id = request.data.get("sub_category")
         name = request.data.get('name')
 
-        if Product.objects.filter(name=name).exists():
+        if Product.objects.filter(name=name, deleted=False).exists():
             return Response(
                 {
                     "errors": {
@@ -303,7 +355,7 @@ class ProductAPIView(APIView):
     
     def put(self, request, slug):
         try:
-            product = Product.objects.get(slug=slug)
+            product = Product.objects.get(slug=slug, deleted=False)
         except Product.DoesNotExist:
             return Response(
                 {
@@ -320,7 +372,7 @@ class ProductAPIView(APIView):
         sub_category_id = request.data.get("sub_category")
         name = request.data.get('name')
 
-        if Product.objects.filter(name=name).exclude(slug=slug).exists():
+        if Product.objects.filter(name=name, deleted=False).exclude(slug=slug).exists():
             return Response(
                 {
                     "errors": {
@@ -366,4 +418,30 @@ class ProductAPIView(APIView):
         return Response(
             {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
             status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    def delete(self, request, slug):
+        try:
+            product = Product.objects.get(slug=slug, deleted=False)
+        except Product.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "product": "Product not found.",
+                        "status_code": status.HTTP_400_BAD_REQUEST
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Soft delete
+        product.deleted = True
+        product.save()
+
+        return Response(
+            {
+                "message": "Product deleted successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK,
         )
