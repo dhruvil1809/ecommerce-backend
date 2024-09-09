@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-
+from rest_framework.pagination import PageNumberPagination
 
 
 class CategoryAPIView(APIView):
@@ -14,15 +14,21 @@ class CategoryAPIView(APIView):
 
     def get(self, request):
         categories = Category.objects.all()
-        serializer = CategorySerializer(categories, many=True)
-        return Response(
-                {
-                    "categories_data": serializer.data,
-                    "message": "Categories get successfully.",
-                    "status_code": status.HTTP_200_OK,
-                },
-                status=status.HTTP_200_OK,
-            )
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+
+        paginated_categories = paginator.paginate_queryset(categories, request)
+
+        serializer = CategorySerializer(paginated_categories, many=True)
+
+        return paginator.get_paginated_response(
+            {
+                "categories_data": serializer.data,
+                "message": "Categories retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            }
+        )
 
     def post(self, request):
         serializer = CategorySerializer(data=request.data)
@@ -68,7 +74,7 @@ class CategoryAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = CategorySerializer(category, data=request.data, partial=True)  # Allow partial updates
+        serializer = CategorySerializer(category, data=request.data, partial=True)
         name = request.data.get('name')
 
         if Category.objects.filter(name=name).exclude(slug=slug).exists():
@@ -104,15 +110,21 @@ class SubCategoryAPIView(APIView):
 
     def get(self, request):
         sub_categories = SubCategory.objects.all()
-        serializer = GetSubCategorySerializer(sub_categories, many=True)
-        return Response(
-                {
-                    "subcategories_data": serializer.data,
-                    "message": "SubCategories get successfully.",
-                    "status_code": status.HTTP_200_OK,
-                },
-                status=status.HTTP_200_OK,
-            )
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+
+        paginated_subcategories = paginator.paginate_queryset(sub_categories, request)
+
+        serializer = GetSubCategorySerializer(paginated_subcategories, many=True)
+
+        return paginator.get_paginated_response(
+            {
+                "subcategories_data": serializer.data,
+                "message": "SubCategories retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            }
+        )
 
     def post(self, request):
         serializer = SubCategorySerializer(data=request.data)
@@ -170,7 +182,7 @@ class SubCategoryAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = SubCategorySerializer(sub_category, data=request.data, partial=True)  # Allow partial updates
+        serializer = SubCategorySerializer(sub_category, data=request.data, partial=True)
         category_id = request.data.get("category")
         name = request.data.get('name')
 
@@ -218,16 +230,22 @@ class ProductAPIView(APIView):
     renderer_classes = [CustomRenderer]
 
     def get(self, request):
-        sub_categories = Product.objects.all()
-        serializer = ProductSerializer(sub_categories, many=True)
-        return Response(
-                {
-                    "Products_data": serializer.data,
-                    "message": "Products get successfully.",
-                    "status_code": status.HTTP_200_OK,
-                },
-                status=status.HTTP_200_OK,
-            )
+        products = Product.objects.all()
+        
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+
+        paginated_products = paginator.paginate_queryset(products, request)
+
+        serializer = ProductSerializer(paginated_products, many=True)
+
+        return paginator.get_paginated_response(
+            {
+                "Products_data": serializer.data,
+                "message": "Products retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            }
+        )
     
     def post(self, request, *args, **kwargs):
         serializer = ProductSerializer(data=request.data)
@@ -297,7 +315,7 @@ class ProductAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = ProductSerializer(product, data=request.data, partial=True)  # Allow partial updates
+        serializer = ProductSerializer(product, data=request.data, partial=True)
         category_id = request.data.get("category")
         sub_category_id = request.data.get("sub_category")
         name = request.data.get('name')
