@@ -27,7 +27,22 @@ class CategoryAPIView(APIView):
                 "categories_data": serializer.data,
                 "message": "Categories retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
-            }
+            },
+            status=status.HTTP_200_OK
+        )
+    
+    def get(self, request):
+        categories = Category.objects.filter(deleted=False)
+
+        serializer = CategorySerializer(categories, many=True)
+
+        return Response(
+            {
+                "categories_data": serializer.data,
+                "message": "Categories retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK
         )
 
     def post(self, request):
@@ -127,6 +142,25 @@ class CategoryAPIView(APIView):
                 "status_code": status.HTTP_200_OK,
             },
             status=status.HTTP_200_OK,
+        )
+
+
+class AllCategoryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+    
+    def get(self, request):
+        categories = Category.objects.filter(deleted=False)
+
+        serializer = CategorySerializer(categories, many=True)
+
+        return Response(
+            {
+                "categories_data": serializer.data,
+                "message": "Categories retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK
         )
     
 
@@ -276,6 +310,25 @@ class SubCategoryAPIView(APIView):
         )
     
     
+class AllSubCategoryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request):
+        sub_categories = SubCategory.objects.filter(deleted=False)
+
+        serializer = GetSubCategorySerializer(sub_categories, many=True)
+
+        return Response(
+            {
+                "subcategories_data": serializer.data,
+                "message": "SubCategories retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK
+        )
+
+
 
 class ProductAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -444,4 +497,23 @@ class ProductAPIView(APIView):
                 "status_code": status.HTTP_200_OK,
             },
             status=status.HTTP_200_OK,
+        )
+    
+
+class AllProductAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request):
+        products = Product.objects.filter(deleted=False)
+
+        serializer = ProductSerializer(products, many=True)
+
+        return Response(
+            {
+                "Products_data": serializer.data,
+                "message": "Products retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK
         )
