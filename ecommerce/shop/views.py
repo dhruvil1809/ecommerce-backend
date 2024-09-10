@@ -27,24 +27,9 @@ class CategoryAPIView(APIView):
                 "categories_data": serializer.data,
                 "message": "Categories retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
-            },
-            status=status.HTTP_200_OK
+            }
         )
     
-    def get(self, request):
-        categories = Category.objects.filter(deleted=False)
-
-        serializer = CategorySerializer(categories, many=True)
-
-        return Response(
-            {
-                "categories_data": serializer.data,
-                "message": "Categories retrieved successfully.",
-                "status_code": status.HTTP_200_OK,
-            },
-            status=status.HTTP_200_OK
-        )
-
     def post(self, request):
         serializer = CategorySerializer(data=request.data)
         name = request.data.get('name')
