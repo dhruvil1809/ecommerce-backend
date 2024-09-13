@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render
 from shop.serializers import *
 from ecommerce.renderers import CustomRenderer
@@ -327,7 +328,7 @@ class ProductAPIView(APIView):
 
         paginated_products = paginator.paginate_queryset(products, request)
 
-        serializer = ProductSerializer(paginated_products, many=True)
+        serializer = GetProductSerializer(paginated_products, many=True)
 
         return paginator.get_paginated_response(
             {
@@ -338,7 +339,24 @@ class ProductAPIView(APIView):
         )
     
     def post(self, request, *args, **kwargs):
-        serializer = ProductSerializer(data=request.data)
+        data = request.data
+        sizes = data.get('sizes')
+        if sizes:
+            sizes_list = sizes.split(',')
+            data['sizes'] = json.dumps(sizes_list)
+
+        colors = data.get('colors')
+        if colors:
+            colors_list = colors.split(',')
+            data['colors'] = json.dumps(colors_list)
+
+        tags = data.get('tags')
+        if tags:
+            tags_list = tags.split(',')
+            data['tags'] = json.dumps(tags_list)
+
+
+        serializer = ProductSerializer(data=data)
         category_id = request.data.get("category")
         sub_category_id = request.data.get("sub_category")
         name = request.data.get('name')
@@ -404,8 +422,24 @@ class ProductAPIView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        
+        data = request.data
+        sizes = data.get('sizes')
+        if sizes:
+            sizes_list = sizes.split(',')
+            data['sizes'] = json.dumps(sizes_list)
 
-        serializer = ProductSerializer(product, data=request.data, partial=True)
+        colors = data.get('colors')
+        if colors:
+            colors_list = colors.split(',')
+            data['colors'] = json.dumps(colors_list)
+
+        tags = data.get('tags')
+        if tags:
+            tags_list = tags.split(',')
+            data['tags'] = json.dumps(tags_list)
+
+        serializer = ProductSerializer(product, data=data, partial=True)
         category_id = request.data.get("category")
         sub_category_id = request.data.get("sub_category")
         name = request.data.get('name')
@@ -492,7 +526,7 @@ class AllProductAPIView(APIView):
     def get(self, request):
         products = Product.objects.filter(deleted=False)
 
-        serializer = ProductSerializer(products, many=True)
+        serializer = GetProductSerializer(products, many=True)
 
         return Response(
             {

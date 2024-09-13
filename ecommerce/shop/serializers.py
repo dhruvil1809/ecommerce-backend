@@ -6,11 +6,6 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
-
-    # def validate_name(self, value):
-    #     if Category.objects.filter(name=value).exists():
-    #         raise serializers.ValidationError("A category with this name already exists.")
-    #     return value
     
 
 class SubCategorySerializer(serializers.ModelSerializer):
@@ -20,10 +15,6 @@ class SubCategorySerializer(serializers.ModelSerializer):
         model = SubCategory
         fields = '__all__'
 
-    # def validate_name(self, value):
-    #     if SubCategory.objects.filter(name=value).exists():
-    #         raise serializers.ValidationError("A subcategory with this name already exists.")
-    #     return value
 
 class GetSubCategorySerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
@@ -52,11 +43,6 @@ class ProductSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'images', 'uploaded_images'
         ]
 
-    # def validate_name(self, value):
-    #     if Product.objects.filter(name=value).exists():
-    #         raise serializers.ValidationError("A Product with this name already exists.")
-    #     return value
-
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
         product = Product.objects.create(**validated_data)
@@ -66,3 +52,13 @@ class ProductSerializer(serializers.ModelSerializer):
             ProductImage.objects.create(product=product, image=image)
         
         return product
+    
+
+class GetProductSerializer(serializers.ModelSerializer):
+    images = ProductImageSerializer(many=True, read_only=True)
+    category = CategorySerializer(read_only=True)
+    sub_category = GetSubCategorySerializer(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = '__all__'
