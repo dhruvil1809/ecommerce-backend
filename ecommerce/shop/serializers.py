@@ -28,10 +28,11 @@ class ProductImageSerializer(serializers.ModelSerializer):
         model = ProductImage
         fields = ['id', 'image']
 
+
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     uploaded_images = serializers.ListField(
-        child=serializers.ImageField(), write_only=True, required=True
+        child=serializers.ImageField(), write_only=True, required=False
     )
 
     class Meta:
@@ -52,7 +53,22 @@ class ProductSerializer(serializers.ModelSerializer):
             ProductImage.objects.create(product=product, image=image)
         
         return product
-    
+
+    def update(self, instance, validated_data):
+        uploaded_images = validated_data.pop('uploaded_images', [])
+        instance = super().update(instance, validated_data)
+        
+        if uploaded_images:
+            # Optionally delete old images
+            ProductImage.objects.filter(product=instance).delete()
+
+            # Save new images
+            for image in uploaded_images:
+                ProductImage.objects.create(product=instance, image=image)
+
+        return instance
+
+
 
 class GetProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
