@@ -35,3 +35,15 @@ class ForgotPasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
     new_password = serializers.CharField(max_length=255, write_only=True)
     confirm_password = serializers.CharField(max_length=255, write_only=True)
+
+
+class GetUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['user_id', 'email', 'first_name', 'last_name', 'phone_number', 'is_active', 'created', 'updated']
+
+
+class DeactivateUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['is_active']

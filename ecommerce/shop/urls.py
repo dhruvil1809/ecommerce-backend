@@ -19,4 +19,9 @@ urlpatterns = [
     path('product-create/', ProductAPIView.as_view(), name='product-create'),
     path('product-update/<slug:slug>', ProductAPIView.as_view(), name='product-update'),
     path('product-delete/<slug:slug>', ProductAPIView.as_view(), name='product-delete'),
+
+    path('get-cart/', CartAPIView.as_view(), name='get-cart'),
+    path('add-cart/', CartAPIView.as_view(), name='add-cart'),
+    path('update-cart-item/<int:item_id>', CartItemAPIView.as_view(), name='update-cart-item'),
+    path('delete-cart-item/<int:item_id>', CartItemAPIView.as_view(), name='delete-cart-item'),
 ]

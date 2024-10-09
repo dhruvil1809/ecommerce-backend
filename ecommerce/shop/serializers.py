@@ -78,3 +78,35 @@ class GetProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product = serializers.SlugRelatedField(slug_field='product_id', queryset=Product.objects.all())
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'cart', 'product', 'quantity', 'size', 'color']
+        extra_kwargs = {'cart': {'required': False}}
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'created_at', 'updated_at', 'items']
+
+
+class CartItemSerializer2(serializers.ModelSerializer):
+    product = ProductSerializer()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'cart', 'product', 'quantity', 'size', 'color']
+        extra_kwargs = {'cart': {'required': False}}
+
+class CartSerializer2(serializers.ModelSerializer):
+    items = CartItemSerializer2(many=True, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'created_at', 'updated_at', 'items']

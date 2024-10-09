@@ -11,6 +11,9 @@ from django.template.loader import render_to_string
 from django.core.mail import send_mail
 from django.conf import settings
 from django.core.cache import cache
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
+
 
 class RegisterUserAPIView(APIView):
     renderer_classes = [CustomRenderer]
@@ -26,9 +29,9 @@ class RegisterUserAPIView(APIView):
                 {
                     "message": "User registered successfully.",
                     "access": str(refresh.access_token),
-                    "status_code": status.HTTP_201_CREATED,
+                    "status_code": status.HTTP_200_OK,
                 },
-                status=status.HTTP_201_CREATED,
+                status=status.HTTP_200_OK,
             )
 
         return Response(
@@ -55,11 +58,23 @@ class LoginUserAPIView(APIView):
                 return Response(
                     {
                         "errors": {
-                            "error": "Invalid email or password.",
-                            "status_code": status.HTTP_401_UNAUTHORIZED,
+                            "error": "Invalid email.",
+                            "status_code": status.HTTP_200_OK,
                         }
                     },
-                    status=status.HTTP_401_UNAUTHORIZED,
+                    status=status.HTTP_200_OK,
+                )
+            
+            # Check if the user is active
+            if not user.is_active:
+                return Response(
+                    {
+                        "errors": {
+                            "error": "This account is deactivated. Please contact support.",
+                            "status_code": status.HTTP_200_OK,
+                        }
+                    },
+                    status=status.HTTP_200_OK,
                 )
             
             # Manually check the password
@@ -67,11 +82,11 @@ class LoginUserAPIView(APIView):
                 return Response(
                     {
                         "errors": {
-                            "error": "Invalid email or password.",
-                            "status_code": status.HTTP_401_UNAUTHORIZED,
+                            "error": "Invalid password.",
+                            "status_code": status.HTTP_200_OK,
                         }
                     },
-                    status=status.HTTP_401_UNAUTHORIZED,
+                    status=status.HTTP_200_OK,
                 )
             
             # Generate JWT tokens
@@ -124,10 +139,10 @@ class EmailVerifyCodeView(APIView):
                 {
                     "errors": {
                         "email": "Email not found.",
-                        "status_code": status.HTTP_404_NOT_FOUND,
+                        "status_code": status.HTTP_200_OK,
                     }
                 },
-                status.HTTP_404_NOT_FOUND,
+                status.HTTP_200_OK,
             )
         return Response(
             {
@@ -160,10 +175,10 @@ class VerifyCodeView(APIView):
                 {
                     "errors": {
                         "code": "Invalid verification code.",
-                        "status_code": status.HTTP_400_BAD_REQUEST,
+                        "status_code": status.HTTP_200_OK,
                     }
                 },
-                status.HTTP_400_BAD_REQUEST,
+                status.HTTP_200_OK,
             )
         return Response(
             {
@@ -189,10 +204,10 @@ class ForgotPasswordResetAPIView(APIView):
                     {
                         "errors": {
                             "confirm_password": "New password and confirm password do not match.",
-                            "status_code": status.HTTP_400_BAD_REQUEST,
+                            "status_code": status.HTTP_200_OK,
                         }
                     },
-                    status=status.HTTP_400_BAD_REQUEST,
+                    status=status.HTTP_200_OK,
                 )
             try:
                 user = User.objects.get(email=email)
@@ -210,14 +225,132 @@ class ForgotPasswordResetAPIView(APIView):
                     {
                         "errors": {
                             "user": "User not found.",
-                            "status_code": status.HTTP_404_NOT_FOUND,
+                            "status_code": status.HTTP_200_OK,
                         }
                     },
-                    status.HTTP_404_NOT_FOUND,
+                    status.HTTP_200_OK,
                 )
         return Response(
             {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class GetUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request):
+        users = User.objects.filter(deleted=False)
+        
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+
+        paginated_users = paginator.paginate_queryset(users, request)
+
+        serializer = GetUserSerializer(paginated_users, many=True)
+
+        return paginator.get_paginated_response(
+            {
+                "User_data": serializer.data,
+                "message": "Users retrieved successfully.",
+                "status_code": status.HTTP_200_OK,
+            }
+        )
+    
+    def put(self, request, user_id):
+        try:
+            user = User.objects.get(user_id=user_id, deleted=False)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "message": "User not found.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        serializer = GetUserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    "message": "User updated successfully.",
+                    "status_code": status.HTTP_200_OK,
+                    "user": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "message": "Invalid data.",
+                "errors": serializer.errors,
+                "status_code": status.HTTP_400_BAD_REQUEST,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def delete(self, request, user_id):
+        try:
+            user = User.objects.get(user_id=user_id, deleted=False)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "message": "User not found.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        user.deleted = True
+        user.save()
+
+        return Response(
+            {
+                "message": "User deleted successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ToggleUserActiveStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "user": "User not found.",
+                        "status_code": status.HTTP_200_OK,
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        new_status = not user.is_active
+        serializer = DeactivateUserSerializer(user, data={'is_active': new_status}, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            message = "User activated successfully." if new_status else "User deactivated successfully."
+            return Response(
+                {
+                    "message": message,
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
 
 
