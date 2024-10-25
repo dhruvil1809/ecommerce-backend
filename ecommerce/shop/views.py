@@ -339,7 +339,7 @@ class ProductAPIView(APIView):
         )
     
     def post(self, request, *args, **kwargs):
-        data = request.data
+        data = request.data.copy()
         sizes = data.get('sizes')
         if sizes:
             sizes_list = sizes.split(',')
@@ -423,7 +423,7 @@ class ProductAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
         
-        data = request.data
+        data = request.data.copy()  
         sizes = data.get('sizes')
         if sizes:
             sizes_list = sizes.split(',')
