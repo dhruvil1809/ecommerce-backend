@@ -24,4 +24,12 @@ urlpatterns = [
     path('add-cart/', CartAPIView.as_view(), name='add-cart'),
     path('update-cart-item/<int:item_id>', CartItemAPIView.as_view(), name='update-cart-item'),
     path('delete-cart-item/<int:item_id>', CartItemAPIView.as_view(), name='delete-cart-item'),
+
+    path('home-data/', HomePageData.as_view(), name='home-data'),
+    path('products-by-category/<str:category_slug>/', ProductsByCategoryAPIView.as_view(), name='products-by-category'),
+    path('product-by-slug/<str:product_slug>/', ProductBySlugAPIView.as_view(), name='product-by-slug'),
+    path('product-like/<str:product_slug>/', ProductLikeAPIView.as_view(), name='product-like'),
+    path('product-review/<int:product_id>/', ReviewAPIView.as_view(), name='product-review'),
+    path('product-review-update/<int:product_id>/', ReviewAPIView.as_view(), name='product-review-update'),
+    path('get-product-review/<int:product_id>/', ReviewAPIView.as_view(), name='get-product-review'),
 ]

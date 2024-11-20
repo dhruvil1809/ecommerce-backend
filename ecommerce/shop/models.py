@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.forms import ValidationError
 from accounts.models import User
 from django.utils.text import slugify
 import uuid
@@ -12,6 +13,7 @@ class Category(models.Model):
     description = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to='category_images/', blank=True, null=True)
     status = models.BooleanField(default=True)
+    add_to_home = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
@@ -61,6 +63,8 @@ class Product(models.Model):
     tags = models.JSONField(null=True, blank=True)
     quantity = models.IntegerField(default=0)
     status = models.BooleanField(default=True)
+    liked_by = models.ManyToManyField(User, related_name='liked_products', blank=True)
+    top_collection = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
@@ -178,3 +182,25 @@ class Shipping(models.Model):
     def __str__(self):
         return f'Shipping for Order {self.order.id}'
 
+
+class Review(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    rating = models.IntegerField()  # Plain integer field
+    review = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Review by {self.user.first_name} for {self.product}"
+
+
+class ReviewImage(models.Model):
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='review_images/')  # Upload to a directory for review images
+
+    def __str__(self):
+        return f"Image for Review {self.review.id}"

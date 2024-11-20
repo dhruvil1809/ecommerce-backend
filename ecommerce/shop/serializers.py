@@ -40,7 +40,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'product_id', 'name', 'slug', 'description', 'regular_price',
             'sale_price', 'sizes', 'colors', 'category', 'sub_category',
-            'gender', 'product_code', 'product_sku', 'tags', 'quantity', 'status',
+            'gender', 'product_code', 'product_sku', 'tags', 'quantity', 'status', 'top_collection',
             'created_at', 'updated_at', 'images', 'uploaded_images'
         ]
 
@@ -110,3 +110,46 @@ class CartSerializer2(serializers.ModelSerializer):
     class Meta:
         model = Cart
         fields = ['id', 'user', 'created_at', 'updated_at', 'items']
+
+
+class ReviewImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReviewImage
+        fields = ['id', 'image']
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    product = serializers.StringRelatedField(read_only=True)
+    images = ReviewImageSerializer(many=True, read_only=True)
+    uploaded_images = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False
+    )
+
+    class Meta:
+        model = Review
+        fields = [
+            'id', 'product', 'user', 'rating', 'review', 'images', 
+            'created_at', 'updated_at', 'uploaded_images'
+        ]
+
+    def create(self, validated_data):
+        uploaded_images = validated_data.pop('uploaded_images', [])
+        review = Review.objects.create(**validated_data)
+        
+        for image in uploaded_images:
+            ReviewImage.objects.create(review=review, image=image)
+        
+        return review
+
+    def update(self, instance, validated_data):
+        uploaded_images = validated_data.pop('uploaded_images', [])
+        instance = super().update(instance, validated_data)
+        
+        if uploaded_images:
+            ReviewImage.objects.filter(review=instance).delete()
+
+            for image in uploaded_images:
+                ReviewImage.objects.create(review=instance, image=image)
+
+        return instance

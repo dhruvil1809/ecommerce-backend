@@ -1,5 +1,5 @@
 import json
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from shop.serializers import *
 from ecommerce.renderers import CustomRenderer
 from rest_framework.views import APIView
@@ -34,6 +34,7 @@ class CategoryAPIView(APIView):
     def post(self, request):
         serializer = CategorySerializer(data=request.data)
         name = request.data.get('name')
+        add_to_home = request.data.get('add_to_home', False)
 
         if Category.objects.filter(name=name, deleted=False).exists():
             return Response(
@@ -42,6 +43,17 @@ class CategoryAPIView(APIView):
                         "name": "A category with this name already exists.",
                         "status_code": status.HTTP_200_OK
                         }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        if add_to_home and Category.objects.filter(add_to_home=True, deleted=False).count() >= 6:
+            return Response(
+                {
+                    "errors": {
+                        "add_to_home": "You can only add up to 6 categories to the home.",
+                        "status_code": status.HTTP_200_OK,
+                    }
                 },
                 status=status.HTTP_200_OK,
             )
@@ -77,6 +89,7 @@ class CategoryAPIView(APIView):
 
         serializer = CategorySerializer(category, data=request.data, partial=True)
         name = request.data.get('name')
+        add_to_home = request.data.get('add_to_home', False)
 
         if Category.objects.filter(name=name, deleted=False).exclude(slug=slug).exists():
             return Response(
@@ -85,6 +98,17 @@ class CategoryAPIView(APIView):
                         "name": "A category with this name already exists.",
                         "status_code": status.HTTP_200_OK
                         }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        if add_to_home and Category.objects.filter(add_to_home=True, deleted=False).count() >= 6:
+            return Response(
+                {
+                    "errors": {
+                        "add_to_home": "You can only add up to 6 categories to the home.",
+                        "status_code": status.HTTP_200_OK,
+                    }
                 },
                 status=status.HTTP_200_OK,
             )
@@ -538,8 +562,6 @@ class AllProductAPIView(APIView):
         )
     
 
-
-
 class CartAPIView(APIView):
     permission_classes = [IsAuthenticated]
     renderer_classes = [CustomRenderer]
@@ -731,8 +753,316 @@ class CartItemAPIView(APIView):
                 {
                     "errors": {
                         "product": "Cart item not found.",
-                        "status_code": status.HTTP_404_NOT_FOUND
+                        "status_code": status.HTTP_200_OK
                     }
                 },
-                status=status.HTTP_404_NOT_FOUND,
+                status=status.HTTP_200_OK,
             )
+
+
+class HomePageData(APIView):
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request):
+
+        categories = Category.objects.filter(add_to_home=True, deleted=False)
+        categories_serializer = CategorySerializer(categories, many=True)
+
+        products = Product.objects.filter(top_collection=True, deleted=False).order_by('-created_at')[:8]
+        products_serializer = GetProductSerializer(products, many=True)
+
+        return Response(
+                {
+                    "categories": categories_serializer.data,
+                    "top_collection": products_serializer.data,
+                    "message": "Data retrieved successfully.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK
+            )
+    
+
+class ProductsByCategoryAPIView(APIView):
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request, category_slug):
+        try:
+            category = Category.objects.get(slug=category_slug, deleted=False, status=True)
+            products = Product.objects.filter(category=category, deleted=False, status=True)
+            serializer = ProductSerializer(products, many=True)
+            return Response(
+                    {
+                        "products": serializer.data,
+                        "message": "Products retrieved successfully.",
+                        "status_code": status.HTTP_200_OK,
+                    },
+                    status=status.HTTP_200_OK
+                )
+    
+        except Category.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "category": "Category not found.",
+                        "status_code": status.HTTP_200_OK
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+
+class ProductBySlugAPIView(APIView):
+    renderer_classes = [CustomRenderer]
+    def get(self, request, product_slug):
+        try:
+            product = Product.objects.get(slug=product_slug, deleted=False, status=True)
+            serializer = ProductSerializer(product)
+            return Response(
+                    {
+                        "product": serializer.data,
+                        "message": "Product retrieved successfully.",
+                        "status_code": status.HTTP_200_OK,
+                    },
+                    status=status.HTTP_200_OK
+                )
+        except Product.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "product": "Product not found.",
+                        "status_code": status.HTTP_200_OK
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+
+class ProductLikeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+    def post(self, request, product_slug):
+        try:
+            product = Product.objects.get(slug=product_slug, deleted=False, status=True)
+            user = request.user
+
+            if user in product.liked_by.all():
+                product.liked_by.remove(user)  # Unlike the product
+                liked = False
+            else:
+                product.liked_by.add(user)  # Like the product
+                liked = True
+
+            product.save()
+
+            return Response(
+                {
+                    "message": "Product like status updated successfully.",
+                    "liked": liked,
+                    "status_code": status.HTTP_200_OK
+                },
+                status=status.HTTP_200_OK
+            )
+        except Product.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "product": "Product not found.",
+                        "status_code": status.HTTP_200_OK
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+
+
+from django.db.models import Q
+
+def has_user_ordered_product(user, product):
+    """Check if the user has ordered the product."""
+    return OrderItem.objects.filter(
+        order__user=user, 
+        product=product, 
+        order__status__in=['Shipped', 'Delivered']
+    ).exists()
+
+
+
+class ReviewAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request, product_id):
+
+        product = Product.objects.get(id=product_id, deleted=False)
+
+        if not product:
+            return Response(
+                {
+                    "errors": {
+                        "product": "Product does not exist.", 
+                        "status_code": status.HTTP_200_OK
+                        }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        reviews = Review.objects.filter(product=product).order_by('-created_at')
+        
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+
+        paginated_categories = paginator.paginate_queryset(reviews, request)
+
+        serializer = ReviewSerializer(paginated_categories, many=True)
+
+        return paginator.get_paginated_response(
+            {
+                "product": product.name,
+                "reviews": serializer.data,
+                "status_code": status.HTTP_200_OK,
+            }
+        )
+
+    def post(self, request, product_id):
+
+        product = Product.objects.get(id=product_id, deleted=False)
+
+        if not product:
+            return Response(
+                {
+                    "errors": {
+                        "product": "Product does not exist.", 
+                        "status_code": status.HTTP_200_OK
+                        }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        # Check if the user has ordered the product
+        if not has_user_ordered_product(request.user, product):
+            return Response(
+                {
+                    "errors": {
+                        "authorization": "You can only review products you have ordered.",
+                        "status_code": status.HTTP_200_OK
+                        } 
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        
+        # Check if the user has already reviewed the product
+        if Review.objects.filter(product=product, user=request.user).exists():
+            return Response(
+                {"errors": {
+                    "review": "You have already reviewed this product.",
+                    "status_code": status.HTTP_200_OK
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        
+        data = request.data.copy()
+
+        rating = data.get('rating')
+        if int(rating) < 1 or int(rating) > 5:
+            return Response(
+                {
+                    "errors": {
+                        "rating": "Rating must be between 1 and 5.",
+                        "status_code": status.HTTP_200_OK
+                        }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        data['product'] = product.id
+        data['user'] = request.user.id
+        
+        serializer = ReviewSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(product=product, user=request.user)
+            return Response(
+                {
+                    **serializer.data,
+                    "message": "Review add successfully.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+
+    def put(self, request, product_id):
+        try:
+            review = Review.objects.get(product__id=product_id, user=request.user, product__deleted=False)
+        except Review.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "review": "Review does not exist for this product by the current user.",
+                        "status_code": status.HTTP_200_OK,
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        try:
+            product = Product.objects.get(id=product_id, deleted=False)
+        except Product.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                    "product": "Product does not exist.",
+                    "status_code": status.HTTP_200_OK
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        # Check if the user has ordered the product
+        if not has_user_ordered_product(request.user, product):
+            return Response(
+                {
+                    "errors": {
+                        "authorization": "You can only update reviews for products you have ordered.",
+                        "status_code": status.HTTP_200_OK
+                        } 
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        data = request.data.copy()
+
+        rating = data.get('rating')
+        if int(rating) < 1 or int(rating) > 5:
+            return Response(
+                {
+                    "errors": {
+                        "rating": "Rating must be between 1 and 5.",
+                        "status_code": status.HTTP_200_OK
+                        }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        serializer = ReviewSerializer(review, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    **serializer.data,
+                    "message": "Review updated successfully.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
