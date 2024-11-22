@@ -32,4 +32,5 @@ urlpatterns = [
     path('product-review/<int:product_id>/', ReviewAPIView.as_view(), name='product-review'),
     path('product-review-update/<int:product_id>/', ReviewAPIView.as_view(), name='product-review-update'),
     path('get-product-review/<int:product_id>/', ReviewAPIView.as_view(), name='get-product-review'),
+    path('product-filter/', ProductFilterView.as_view(), name='product-filter'),
 ]

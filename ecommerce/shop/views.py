@@ -1,3 +1,4 @@
+from audioop import avg
 import json
 from django.shortcuts import get_object_or_404, render
 from shop.serializers import *
@@ -7,6 +8,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
+from rest_framework import generics, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import ProductFilter
+from django.db.models import Avg
 
 
 class CategoryAPIView(APIView):
@@ -348,7 +353,7 @@ class ProductAPIView(APIView):
         products = Product.objects.filter(deleted=False)
         
         paginator = PageNumberPagination()
-        paginator.page_size = 20
+        paginator.page_size = 21
 
         paginated_products = paginator.paginate_queryset(products, request)
 
@@ -789,15 +794,21 @@ class ProductsByCategoryAPIView(APIView):
         try:
             category = Category.objects.get(slug=category_slug, deleted=False, status=True)
             products = Product.objects.filter(category=category, deleted=False, status=True)
-            serializer = ProductSerializer(products, many=True)
-            return Response(
-                    {
-                        "products": serializer.data,
-                        "message": "Products retrieved successfully.",
-                        "status_code": status.HTTP_200_OK,
-                    },
-                    status=status.HTTP_200_OK
-                )
+        
+            paginator = PageNumberPagination()
+            paginator.page_size = 21
+
+            paginated_categories = paginator.paginate_queryset(products, request)
+
+            serializer = ProductSerializer(paginated_categories, many=True)
+
+            return paginator.get_paginated_response(
+                {
+                    "products": serializer.data,
+                    "message": "Products retrieved successfully.",
+                    "status_code": status.HTTP_200_OK,
+                }
+            )
     
         except Category.DoesNotExist:
             return Response(
@@ -1066,3 +1077,26 @@ class ReviewAPIView(APIView):
             {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class ProductFilterView(generics.ListAPIView):
+    renderer_classes = [CustomRenderer]
+    queryset = Product.objects.filter(deleted=False, status=True)
+    serializer_class = ProductSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = ProductFilter
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        top_rated = self.request.query_params.get('top_rated', None)
+        if top_rated:
+            queryset = queryset.annotate(avg_rating=Avg('reviews__rating')).order_by('-avg_rating')
+        return queryset
+    
+
+class CreateOrderView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
+
+    def post(self, request):
+        pass

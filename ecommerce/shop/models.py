@@ -62,6 +62,7 @@ class Product(models.Model):
     product_sku = models.CharField(max_length=50, null=True, blank=True)
     tags = models.JSONField(null=True, blank=True)
     quantity = models.IntegerField(default=0)
+    in_stock = models.BooleanField(default=True)
     status = models.BooleanField(default=True)
     liked_by = models.ManyToManyField(User, related_name='liked_products', blank=True)
     top_collection = models.BooleanField(default=False)
