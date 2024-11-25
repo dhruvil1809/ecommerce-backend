@@ -29,8 +29,12 @@ urlpatterns = [
     path('products-by-category/<str:category_slug>/', ProductsByCategoryAPIView.as_view(), name='products-by-category'),
     path('product-by-slug/<str:product_slug>/', ProductBySlugAPIView.as_view(), name='product-by-slug'),
     path('product-like/<str:product_slug>/', ProductLikeAPIView.as_view(), name='product-like'),
+    path('wishlist/', ProductLikeAPIView.as_view(), name='wishlist'),
     path('product-review/<int:product_id>/', ReviewAPIView.as_view(), name='product-review'),
     path('product-review-update/<int:product_id>/', ReviewAPIView.as_view(), name='product-review-update'),
     path('get-product-review/<int:product_id>/', ReviewAPIView.as_view(), name='get-product-review'),
     path('product-filter/', ProductFilterView.as_view(), name='product-filter'),
+
+    path('create-order/', CreateOrderAPIView.as_view(), name='create-order'),
+    path('get-order-details/', GetUserOrderAPIView.as_view(), name='get-order-details')
 ]

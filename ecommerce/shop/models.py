@@ -6,6 +6,7 @@ from django.utils.text import slugify
 import uuid
 from datetime import datetime
 import random
+from django.db.models import Avg
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -66,6 +67,8 @@ class Product(models.Model):
     status = models.BooleanField(default=True)
     liked_by = models.ManyToManyField(User, related_name='liked_products', blank=True)
     top_collection = models.BooleanField(default=False)
+    average_rating = models.FloatField(default=0.0)
+    best_seller = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
@@ -76,11 +79,23 @@ class Product(models.Model):
             if not Product.objects.filter(product_id=product_id).exists():
                 return product_id
             
+    def update_average_rating(self):
+        """
+        Updates the average rating of the product based on its reviews.
+        """
+        avg_rating = self.reviews.aggregate(Avg('rating'))['rating__avg']
+        self.average_rating = avg_rating if avg_rating else 0.0
+        self.save()
+            
     def save(self, *args, **kwargs):
         if not self.product_id:
             self.product_id = self.generate_unique_id()
         if not self.slug:
             self.slug = slugify(self.name)
+
+        # Set in_stock based on quantity
+        self.in_stock = self.quantity > 0
+
         super(Product, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -97,28 +112,12 @@ class ProductImage(models.Model):
 
 
 class Order(models.Model):
-    order_id = models.CharField(max_length=18, unique=True, editable=False)
+    order_id = models.CharField(max_length=100, unique=True, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=50, choices=[('Pending', 'Pending'), ('Shipped', 'Shipped'), ('Delivered', 'Delivered'), ('Canceled', 'Canceled')], default='Pending')
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-
-
-    def generate_order_id(self):
-        date_str = datetime.now().strftime('%Y%m%d')
-        unique_number = str(uuid.uuid4().int)[:5]
-        order_id = f'ORD-{date_str}-{unique_number}'
-
-        if not Order.objects.filter(order_id=order_id).exists():
-            return order_id
-        
-        return self.generate_order_id()
-
-    def save(self, *args, **kwargs):
-        if not self.order_id:
-            self.order_id = self.generate_order_id()
-        super(Order, self).save(*args, **kwargs)
 
     def __str__(self):
         return f'Order {self.id} by {self.user.email}'
@@ -133,11 +132,10 @@ class OrderItem(models.Model):
         return f'{self.quantity} x {self.product.name}'
 
 class Payment(models.Model):
-    order = models.OneToOneField(Order, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_method = models.CharField(max_length=50, choices=[('Credit Card', 'Credit Card'), ('PayPal', 'PayPal'), ('Bank Transfer', 'Bank Transfer')])
-    paid_at = models.DateTimeField(auto_now_add=True)
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='payment')
+    payment_id = models.CharField(max_length=100,blank=True, null=True)
     status = models.CharField(max_length=50, choices=[('Pending', 'Pending'), ('Completed', 'Completed'), ('Failed', 'Failed')], default='Pending')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'Payment for Order {self.order.id}'
@@ -187,13 +185,14 @@ class Shipping(models.Model):
 class Review(models.Model):
     product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='reviews')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    rating = models.IntegerField()  # Plain integer field
+    rating = models.IntegerField()
     review = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+        self.product.update_average_rating()
 
     def __str__(self):
         return f"Review by {self.user.first_name} for {self.product}"

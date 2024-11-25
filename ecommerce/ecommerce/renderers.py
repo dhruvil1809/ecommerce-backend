@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import renderers
 import json
 
@@ -5,6 +6,19 @@ class CustomRenderer(renderers.JSONRenderer):
     charset = 'utf-8'
     
     def render(self, data, accepted_media_type=None, renderer_context=None):
+
+        def decimal_to_float(value):
+            if isinstance(value, Decimal):
+                return float(value)
+            elif isinstance(value, dict):
+                return {k: decimal_to_float(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [decimal_to_float(v) for v in value]
+            else:
+                return value
+
+        # Convert Decimals in data to floats
+        data = decimal_to_float(data)
 
         response = {}
         print(data)
@@ -45,7 +59,7 @@ class CustomRenderer(renderers.JSONRenderer):
 
             elif 'errors' in data and 'ErrorDetail' in str(data) and 'unique' in str(data):
                 response['status'] = False
-                response['status_code'] = data.get('status_code', 400)
+                response['status_code'] = data.get('status_code', 200)
                 response['message'] = 'An error occurred'
                 error_details = {}
                 for field, errors in data['errors'].items():

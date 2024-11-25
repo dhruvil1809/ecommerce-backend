@@ -5,7 +5,7 @@ from .models import *
 class ProductFilter(django_filters.FilterSet):
     color = django_filters.CharFilter(field_name='colors', lookup_expr='icontains')
     size = django_filters.CharFilter(field_name='sizes', lookup_expr='icontains')
-    gender = django_filters.CharFilter(field_name='gender', lookup_expr='icontains')
+    gender = django_filters.CharFilter(field_name='gender', lookup_expr='iexact')
     category = django_filters.ModelChoiceFilter(queryset=Category.objects.filter(deleted=False))
     sub_category = django_filters.ModelChoiceFilter(queryset=SubCategory.objects.filter(deleted=False))
     min_price = django_filters.NumberFilter(field_name='sale_price', lookup_expr='gte')

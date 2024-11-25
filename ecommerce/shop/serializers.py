@@ -34,15 +34,25 @@ class ProductSerializer(serializers.ModelSerializer):
     uploaded_images = serializers.ListField(
         child=serializers.ImageField(), write_only=True, required=False
     )
+    is_liked_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             'id', 'product_id', 'name', 'slug', 'description', 'regular_price',
-            'sale_price', 'sizes', 'colors', 'category', 'sub_category',
+            'sale_price', 'sizes', 'colors', 'category', 'sub_category','average_rating','is_liked_by_user',
             'gender', 'product_code', 'product_sku', 'tags', 'quantity', 'status', 'top_collection',
             'created_at', 'updated_at', 'images', 'uploaded_images'
         ]
+
+    def get_is_liked_by_user(self, obj):
+        """
+        Returns True if the current user has liked the product; otherwise, False.
+        """
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return obj.liked_by.filter(id=user.id).exists()
+        return False
 
     def create(self, validated_data):
         uploaded_images = validated_data.pop('uploaded_images', [])
@@ -74,11 +84,20 @@ class GetProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     sub_category = GetSubCategorySerializer(read_only=True)
+    is_liked_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = '__all__'
 
+    def get_is_liked_by_user(self, obj):
+        """
+        Returns True if the current user has liked the product; otherwise, False.
+        """
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return obj.liked_by.filter(id=user.id).exists()
+        return False
 
 class CartItemSerializer(serializers.ModelSerializer):
     product = serializers.SlugRelatedField(slug_field='product_id', queryset=Product.objects.all())
@@ -153,3 +172,17 @@ class ReviewSerializer(serializers.ModelSerializer):
                 ReviewImage.objects.create(review=instance, image=image)
 
         return instance
+    
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    class Meta:
+        model = OrderItem
+        fields = ['product', 'quantity', 'price']  # Customize the fields as needed
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True)
+
+    class Meta:
+        model = Order
+        fields = ['order_id', 'status', 'total_amount', 'created_at', 'updated_at', 'items']
