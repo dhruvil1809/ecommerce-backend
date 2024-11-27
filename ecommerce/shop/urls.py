@@ -1,5 +1,11 @@
 from django.urls import path
-from shop.views import *
+from shop.views.product_views import *
+from shop.views.category_views import *
+from shop.views.cart_views import *
+from shop.views.review_views import *
+from shop.views.order_views import *
+from shop.views.order_views import *
+from shop.views.payment_views import *
 
 urlpatterns = [
     path('categories/', CategoryAPIView.as_view(), name='categories'),

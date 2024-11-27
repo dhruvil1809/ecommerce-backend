@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from shop.models import *
+from shop.models.address_models import *
+from shop.models.product_models import *
+from shop.models.pyment_models import *
+from shop.models.cart_models import *
+from shop.models.category_models import *
+from shop.models.order_models import *
+from shop.models.review_models import *
 
 
 class CategorySerializer(serializers.ModelSerializer):

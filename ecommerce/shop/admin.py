@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import Category, Product, ProductImage, Order, OrderItem, Payment, Inventory, Cart, CartItem, Shipping, SubCategory
+from shop.models.address_models import *
+from shop.models.product_models import *
+from shop.models.pyment_models import *
+from shop.models.cart_models import *
+from shop.models.category_models import *
+from shop.models.order_models import *
+from shop.models.review_models import *
 
 # Inline admin for OrderItem to display items within Order admin
 class OrderItemInline(admin.TabularInline):

@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from accounts.serializers import *
 from ecommerce.renderers import CustomRenderer
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.models import User
+from accounts.models.user_models import User
 from django.contrib.auth.hashers import check_password
 from django.utils.crypto import get_random_string
 from django.template.loader import render_to_string

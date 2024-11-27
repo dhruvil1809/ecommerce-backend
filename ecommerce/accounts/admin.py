@@ -1,5 +1,5 @@
 from django.contrib import admin
-from accounts.models import User
+from accounts.models.user_models import User
 
 # Custom admin for User to handle user management
 class CustomUserAdmin(admin.ModelAdmin):
