@@ -12,4 +12,5 @@ urlpatterns = [
     path('users-status/<int:user_id>', ToggleUserActiveStatusAPIView.as_view(), name='users-status'),
     path('users-update/<int:user_id>', GetUserAPIView.as_view(), name='update-user'),
     path('users-delete/<int:user_id>', GetUserAPIView.as_view(), name='delete-user'),
+    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
 ]

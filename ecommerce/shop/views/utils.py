@@ -16,9 +16,10 @@ from shop.models.category_models import *
 from shop.models.order_models import *
 from shop.models.review_models import *
 
+
 class ProductFilter(django_filters.FilterSet):
-    color = django_filters.CharFilter(field_name='colors', lookup_expr='icontains')
-    size = django_filters.CharFilter(field_name='sizes', lookup_expr='icontains')
+    color = django_filters.CharFilter(method='filter_color')
+    size = django_filters.CharFilter(method='filter_size')
     gender = django_filters.CharFilter(field_name='gender', lookup_expr='iexact')
     category = django_filters.CharFilter(field_name='category__slug', lookup_expr='iexact')
     sub_category = django_filters.CharFilter(field_name='sub_category__slug', lookup_expr='iexact')
@@ -40,3 +41,9 @@ class ProductFilter(django_filters.FilterSet):
     class Meta:
         model = Product
         fields = ['color', 'size', 'gender', 'category', 'sub_category', 'min_price', 'max_price']
+
+    def filter_color(self, queryset, name, value):
+        return queryset.filter(inventory__color__icontains=value)
+
+    def filter_size(self, queryset, name, value):
+        return queryset.filter(inventory__size__icontains=value)

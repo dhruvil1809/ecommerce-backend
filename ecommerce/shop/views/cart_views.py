@@ -16,80 +16,129 @@ class CartAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
-
+    
     def post(self, request):
         cart, created = Cart.objects.get_or_create(user=request.user)
         item_data = request.data
 
         product_id = item_data.get('product')
-        quantity = item_data.get('quantity', 1)
+        quantity = int(item_data.get('quantity', 1))
         size = item_data.get('size')
         color = item_data.get('color')
 
         try:
             product = Product.objects.get(product_id=product_id)
-            
-            # Check if the size and color match the available options (if sizes/colors are defined)
-            if product.sizes and size not in product.sizes:
+
+            # Find the matching inventory entry
+            try:
+                inventory = Inventory.objects.get(product=product, size=size)
+            except Inventory.DoesNotExist:
                 return Response(
                     {
                         "errors": {
-                            "size":f"Size {size} is not available for this product.",
-                            "status_code": status.HTTP_200_OK
+                            "inventory": f"{size} size is not available.",
+                            "status_code": status.HTTP_200_OK,
                         }
                     },
                     status=status.HTTP_200_OK,
                 )
             
-            if product.colors and color not in product.colors:
+            try:
+                inventory = Inventory.objects.get(product=product, color=color)
+            except Inventory.DoesNotExist:
                 return Response(
                     {
                         "errors": {
-                            "color":f"Color {color} is not available for this product.",
-                            "status_code": status.HTTP_200_OK
+                            "inventory": f"{color} size is not available.",
+                            "status_code": status.HTTP_200_OK,
                         }
                     },
                     status=status.HTTP_200_OK,
                 )
 
-            cart_item = CartItem.objects.get(
-                cart=cart,
-                product_id=product_id,
-                size=size if size else None,
-                color=color if color else None
+            # Check if requested quantity exceeds available stock
+            if quantity > inventory.quantity:
+                return Response(
+                    {
+                        "errors": {
+                            "inventory": f"Only {inventory.quantity} units are available in stock.",
+                            "status_code": status.HTTP_200_OK,
+                        }
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            # Check if the cart item with the same size and color already exists
+            try:
+                cart_item = CartItem.objects.get(
+                    cart=cart,
+                    product=product,
+                    size=size,
+                    color=color,
+                )
+
+                # Update the cart item with the new total quantity
+                total_quantity = cart_item.quantity + quantity
+
+                # Ensure total quantity does not exceed available stock
+                if total_quantity > inventory.quantity:
+                    available = inventory.quantity - cart_item.quantity
+                    if available > 0:
+                        return Response(
+                            {
+                                "errors": {
+                                    "inventory": f"Only {available} additional units can be added.",
+                                    "status_code": status.HTTP_200_OK,
+                                }
+                            },
+                            status=status.HTTP_200_OK,
+                        )
+                    
+                    return Response(
+                        {
+                            "errors": {
+                                "inventory": f"0 units available in stock.",
+                                "status_code": status.HTTP_200_OK
+                            }
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+                cart_item.quantity = total_quantity
+                cart_item.save()
+
+            except CartItem.DoesNotExist:
+                # Create a new cart item
+                item_data['cart'] = cart.id
+                item_serializer = CartItemSerializer(data=item_data)
+                if item_serializer.is_valid():
+                    item_serializer.save(cart=cart, product=product)
+                else:
+                    return Response(
+                        {"errors": item_serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        except Product.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "product": "Product not found.",
+                        "status_code": status.HTTP_200_OK,
+                    }
+                },
+                status=status.HTTP_200_OK,
             )
-            
-            # Calculate the total quantity in cart (existing + new)
-            total_quantity = cart_item.quantity + quantity
 
-            # Check if the total quantity exceeds available stock
-            if total_quantity > product.quantity:
-                return Response(
-                    {
-                        "errors": {
-                            "product": f"Only {product.quantity - cart_item.quantity} units available in stock.",
-                            "status_code": status.HTTP_200_OK
-                        }
-                    },
-                    status=status.HTTP_200_OK,
-                )
+        return Response(
+                {
+                    "message": "Cart updated successfully.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
 
-            # Update cart item with new total quantity
-            cart_item.quantity = total_quantity
-            cart_item.save()
 
-        except CartItem.DoesNotExist:
-            item_data['cart'] = cart.id
-            item_serializer = CartItemSerializer(data=item_data)
-            if item_serializer.is_valid():
-                item_serializer.save(cart=cart)
-            else:
-                return Response(
-                    {"errors": item_serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        return Response({"message": "Cart updated successfully"}, status=status.HTTP_200_OK)
 
 
 class CartItemAPIView(APIView):
@@ -98,13 +147,14 @@ class CartItemAPIView(APIView):
 
     def put(self, request, item_id):
         try:
+            # Fetch the cart item
             cart_item = CartItem.objects.get(id=item_id, cart__user=request.user)
         except CartItem.DoesNotExist:
             return Response(
                 {
                     "errors": {
                         "product": "Cart item not found.",
-                        "status_code": status.HTTP_200_OK
+                        "status_code": status.HTTP_200_OK,
                     }
                 },
                 status=status.HTTP_200_OK,
@@ -113,69 +163,76 @@ class CartItemAPIView(APIView):
         # Get the product linked to the cart item
         product = cart_item.product
 
-        # Get the quantity being updated from the request data
-        new_quantity = request.data.get('quantity', cart_item.quantity)
-
-        # Check if the requested quantity is greater than the available stock
-        if new_quantity > product.quantity:
-            return Response(
-                {
-                    "errors": {
-                        "product":f"{product.quantity} units available in stock.",
-                        "status_code": status.HTTP_200_OK
-                    }
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        # If size or color are being updated, ensure they are available
+        # Fetch the requested updates
+        new_quantity = int(request.data.get('quantity', cart_item.quantity))
         size = request.data.get('size', cart_item.size)
         color = request.data.get('color', cart_item.color)
 
-        # Check if the size and color match the available options (if sizes/colors are defined)
-        if product.sizes and size not in product.sizes:
+        # Find the corresponding inventory entry
+        try:
+            inventory = Inventory.objects.get(product=product, size=size)
+        except Inventory.DoesNotExist:
             return Response(
                 {
                     "errors": {
-                        "size":f"Size {size} is not available for this product.",
-                        "status_code": status.HTTP_200_OK
+                        "inventory": f"{size} size is not available.",
+                        "status_code": status.HTTP_200_OK,
                     }
                 },
                 status=status.HTTP_200_OK,
             )
         
-        if product.colors and color not in product.colors:
+        try:
+            inventory = Inventory.objects.get(product=product, color=color)
+        except Inventory.DoesNotExist:
             return Response(
                 {
                     "errors": {
-                        "color":f"Color {color} is not available for this product.",
-                        "status_code": status.HTTP_200_OK
+                        "inventory": f"{color} color is not available.",
+                        "status_code": status.HTTP_200_OK,
                     }
                 },
                 status=status.HTTP_200_OK,
             )
 
-        # Proceed with updating the cart item
-        serializer = CartItemSerializer(cart_item, data=request.data, partial=True, context={'request': request})
+        # Check if the updated quantity exceeds available stock
+        if new_quantity > inventory.quantity:
+            return Response(
+                {
+                    "errors": {
+                        "inventory": f"Only {inventory.quantity} units are available in stock.",
+                        "status_code": status.HTTP_400_BAD_REQUEST,
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Update cart item with validated data
+        data = {
+            "quantity": new_quantity,
+            "size": size,
+            "color": color,
+        }
+        serializer = CartItemSerializer(cart_item, data=data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
-
             return Response(
                 {
                     "message": "Cart item updated successfully.",
                     "cart_item": serializer.data,
-                    "status_code": status.HTTP_200_OK
+                    "status_code": status.HTTP_200_OK,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         
         return Response(
             {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
-            status=status.HTTP_400_BAD_REQUEST
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     def delete(self, request, item_id):
         try:
+            # Fetch the cart item
             cart_item = CartItem.objects.get(id=item_id, cart__user=request.user)
 
             # Delete the cart item
@@ -183,17 +240,23 @@ class CartItemAPIView(APIView):
             return Response(
                 {
                     "message": "Cart item removed successfully.",
-                    "status_code": status.HTTP_200_OK
+                    "status_code": status.HTTP_200_OK,
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
         except CartItem.DoesNotExist:
             return Response(
                 {
                     "errors": {
                         "product": "Cart item not found.",
-                        "status_code": status.HTTP_200_OK
+                        "status_code": status.HTTP_200_OK,
                     }
                 },
                 status=status.HTTP_200_OK,
             )
+
+
+
+
+
+

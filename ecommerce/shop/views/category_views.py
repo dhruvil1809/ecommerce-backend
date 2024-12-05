@@ -9,7 +9,7 @@ class CategoryAPIView(APIView):
         categories = Category.objects.filter(deleted=False)
 
         paginator = PageNumberPagination()
-        paginator.page_size = 20
+        paginator.page_size = 2
 
         paginated_categories = paginator.paginate_queryset(categories, request)
 
@@ -19,6 +19,7 @@ class CategoryAPIView(APIView):
             {
                 "categories_data": serializer.data,
                 "current_page": paginator.page.number,
+                "total_pages": paginator.page.paginator.num_pages,
                 "page_size": paginator.page_size,
                 "message": "Categories retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
@@ -186,6 +187,7 @@ class SubCategoryAPIView(APIView):
             {
                 "subcategories_data": serializer.data,
                 "current_page": paginator.page.number,
+                "total_pages": paginator.page.paginator.num_pages,
                 "page_size": paginator.page_size,
                 "message": "SubCategories retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
@@ -330,6 +332,66 @@ class AllSubCategoryAPIView(APIView):
                 "subcategories_data": serializer.data,
                 "message": "SubCategories retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+class SubCategoryByCategoryAPIView(APIView):
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request, category_slug):
+        try:
+            category = Category.objects.get(slug=category_slug, deleted=False)
+
+            subcategories = SubCategory.objects.filter(category=category, deleted=False, status=True)
+
+            serializer = SubCategorySerializer(subcategories, many=True)
+
+            return Response({
+                "category": category.name,
+                "subcategories": serializer.data,
+                "message": "Subcategories retrieved successfully.",
+                "status_code": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+        except Category.DoesNotExist:
+            return Response(
+                {
+                    "errors": {
+                        "category": "Category not found.",
+                        "status_code": status.HTTP_200_OK
+                    }
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+
+
+class CategorySubcategoryListAPIView(APIView):
+    renderer_classes = [CustomRenderer]
+
+    def get(self, request):
+        # Query categories and subcategories
+        categories = Category.objects.filter(deleted=False, status=True).values('name', 'slug')
+        subcategories = SubCategory.objects.filter(deleted=False, status=True).values('name', 'slug', 'category_id')
+
+        # Organize subcategories under their parent categories
+        category_data = []
+        for category in categories:
+            category_data.append({
+                'name': category['name'],
+                'slug': category['slug'],
+                'subcategories': [
+                    {'slug': sub['slug'],'name': sub['name']}
+                    for sub in subcategories if sub['category_id'] == Category.objects.get(name=category['name']).id
+                ]
+            })
+
+        return Response(
+            {
+                "categories": category_data,
+                "message": "Categories and subcategories retrieved successfully.",
+                "status_code": status.HTTP_200_OK
             },
             status=status.HTTP_200_OK
         )

@@ -12,8 +12,7 @@ class Category(models.Model):
     deleted = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
+        self.slug = slugify(self.name)
         super(Category, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -31,8 +30,7 @@ class SubCategory(models.Model):
     deleted = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
+        self.slug = slugify(self.name)
         super(SubCategory, self).save(*args, **kwargs)
 
     def __str__(self):

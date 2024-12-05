@@ -253,6 +253,9 @@ class GetUserAPIView(APIView):
         return paginator.get_paginated_response(
             {
                 "User_data": serializer.data,
+                "current_page": paginator.page.number,
+                "total_pages": paginator.page.paginator.num_pages,
+                "page_size": paginator.page_size,
                 "message": "Users retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
             }
@@ -264,8 +267,10 @@ class GetUserAPIView(APIView):
         except User.DoesNotExist:
             return Response(
                 {
-                    "message": "User not found.",
-                    "status_code": status.HTTP_200_OK,
+                    "errors": {
+                        "user": "User not found.",
+                        "status_code": status.HTTP_200_OK,
+                    }
                 },
                 status=status.HTTP_200_OK,
             )
@@ -353,4 +358,25 @@ class ToggleUserActiveStatusAPIView(APIView):
 
 
 
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+    renderer_classes = [CustomRenderer]
 
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response(
+                {
+                    "message": "Password changed successfully.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
+        
+        return Response(
+            {"errors": serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
+            status=status.HTTP_400_BAD_REQUEST,
+        )

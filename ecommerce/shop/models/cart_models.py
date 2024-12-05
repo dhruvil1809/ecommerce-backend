@@ -17,6 +17,9 @@ class CartItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     size = models.CharField(max_length=10, null=True, blank=True)
     color = models.CharField(max_length=20, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f'{self.quantity} x {self.product.name}'
+    

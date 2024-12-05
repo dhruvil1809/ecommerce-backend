@@ -3,6 +3,7 @@ from rest_framework import generics, filters
 from django_filters.rest_framework import DjangoFilterBackend
 from shop.views.utils import ProductFilter
 from django.db.models import Avg, Min, Max
+from rest_framework.pagination import PageNumberPagination
 
 
 class ProductAPIView(APIView):
@@ -23,6 +24,7 @@ class ProductAPIView(APIView):
             {
                 "Products_data": serializer.data,
                 "current_page": paginator.page.number,
+                "total_pages": paginator.page.paginator.num_pages,
                 "page_size": paginator.page_size,
                 "message": "Products retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
@@ -31,21 +33,6 @@ class ProductAPIView(APIView):
     
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
-        sizes = data.get('sizes')
-        if sizes:
-            sizes_list = sizes.split(',')
-            data['sizes'] = json.dumps(sizes_list)
-
-        colors = data.get('colors')
-        if colors:
-            colors_list = colors.split(',')
-            data['colors'] = json.dumps(colors_list)
-
-        tags = data.get('tags')
-        if tags:
-            tags_list = tags.split(',')
-            data['tags'] = json.dumps(tags_list)
-
 
         serializer = ProductSerializer(data=data, context={'request': request})
         category_id = request.data.get("category")
@@ -115,20 +102,6 @@ class ProductAPIView(APIView):
             )
         
         data = request.data.copy()  
-        sizes = data.get('sizes')
-        if sizes:
-            sizes_list = sizes.split(',')
-            data['sizes'] = json.dumps(sizes_list)
-
-        colors = data.get('colors')
-        if colors:
-            colors_list = colors.split(',')
-            data['colors'] = json.dumps(colors_list)
-
-        tags = data.get('tags')
-        if tags:
-            tags_list = tags.split(',')
-            data['tags'] = json.dumps(tags_list)
 
         serializer = ProductSerializer(product, data=data, partial=True, context={'request': request})
         category_id = request.data.get("category")
@@ -275,6 +248,7 @@ class ProductsByCategoryAPIView(APIView):
                 {
                     "products": serializer.data,
                     "current_page": paginator.page.number,
+                    "total_pages": paginator.page.paginator.num_pages,
                     "page_size": paginator.page_size,
                     "message": "Products retrieved successfully.",
                     "status_code": status.HTTP_200_OK,
@@ -295,18 +269,34 @@ class ProductsByCategoryAPIView(APIView):
 
 class ProductBySlugAPIView(APIView):
     renderer_classes = [CustomRenderer]
+
     def get(self, request, product_slug):
         try:
             product = Product.objects.get(slug=product_slug, deleted=False, status=True)
-            serializer = GetProductSerializer(product, context={'request': request})
+
+            product_serializer = GetProductSerializer(product, context={'request': request})
+
+            related_products = Product.objects.filter(
+                sub_category=product.sub_category,
+                deleted=False,
+                status=True
+            ).exclude(id=product.id)[:4]
+
+            related_products_serializer = GetProductSerializer(
+                related_products, 
+                many=True, 
+                context={'request': request}
+            )
+
             return Response(
-                    {
-                        "product": serializer.data,
-                        "message": "Product retrieved successfully.",
-                        "status_code": status.HTTP_200_OK,
-                    },
-                    status=status.HTTP_200_OK
-                )
+                {
+                    "product": product_serializer.data,
+                    "related_products": related_products_serializer.data,
+                    "message": "Product retrieved successfully.",
+                    "status_code": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
         except Product.DoesNotExist:
             return Response(
                 {
@@ -317,6 +307,7 @@ class ProductBySlugAPIView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
+
         
 
 class ProductLikeAPIView(APIView):
@@ -339,6 +330,7 @@ class ProductLikeAPIView(APIView):
             {
                 "product": serializer.data,
                 "current_page": paginator.page.number,
+                "total_pages": paginator.page.paginator.num_pages,
                 "page_size": paginator.page_size,
                 "message": "Product retrieved successfully.",
                 "status_code": status.HTTP_200_OK,
@@ -378,8 +370,6 @@ class ProductLikeAPIView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
-        
-
 
 
 class ProductFilterView(generics.ListAPIView):
@@ -392,36 +382,59 @@ class ProductFilterView(generics.ListAPIView):
     def get_queryset(self):
         queryset = super().get_queryset()
         top_rated = self.request.query_params.get('top_rated', None)
+        category_slug = self.request.query_params.get('category', None)
+
+        # Apply category-specific filtering if a category is specified
+        if category_slug:
+            queryset = queryset.filter(category__slug=category_slug)
+
         if top_rated:
             queryset = queryset.annotate(avg_rating=Avg('reviews__rating')).order_by('-avg_rating')
+
         return queryset
-    
+
     def list(self, request, *args, **kwargs):
-        # Get the filtered queryset
         queryset = self.filter_queryset(self.get_queryset())
-        response = super().list(request, *args, **kwargs)
 
-        # Extract filter options from the current queryset
-        sizes = list({size for sizes in queryset.values_list('sizes', flat=True) for size in (sizes or [])})
-        colors = list({color for colors in queryset.values_list('colors', flat=True) for color in (colors or [])})
-        genders = list({gender for gender in queryset.values_list('gender', flat=True) if gender})
+        category_slug = self.request.query_params.get('category', None)
 
-        # Compute min_price and max_price from the filtered queryset
-        min_price = queryset.aggregate(min_price=Min('sale_price'))['min_price']
-        max_price = queryset.aggregate(max_price=Max('sale_price'))['max_price']
+        # Paginator
+        paginator = PageNumberPagination()
+        paginator.page_size = 21
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
 
-        # Add filter-related data to the response
-        response.data['filters'] = {
-            'sizes': sizes,
-            'colors': colors,
-            'genders': genders,
-            'min_price': min_price,
-            'max_price': max_price
+        # Aggregating filter options
+        inventory_queryset = Inventory.objects.filter(product__deleted=False, product__status=True)
+        if category_slug:
+            inventory_queryset = inventory_queryset.filter(product__category__slug=category_slug)
+
+        colors = inventory_queryset.values_list('color', flat=True).distinct()
+        sizes = inventory_queryset.values_list('size', flat=True).distinct()
+        genders = queryset.values_list('gender', flat=True).distinct()
+        min_price = queryset.aggregate(Min('sale_price'))['sale_price__min']
+        max_price = queryset.aggregate(Max('sale_price'))['sale_price__max']
+
+        # Serialize paginated data
+        serializer = self.get_serializer(paginated_queryset, many=True)
+
+        # Add pagination and filter metadata
+        response = paginator.get_paginated_response(serializer.data)
+        response.data['pagination'] = {
+            'current_page': paginator.page.number,
+            'total_pages': paginator.page.paginator.num_pages,
         }
+        response.data['filters'] = {
+            'colors': list(colors),
+            'sizes': list(sizes),
+            'genders': list(genders),
+            'min_price': min_price,
+            'max_price': max_price,
+        }
+
         return response
-    
-    def get_serializer(self, *args, **kwargs):
-        # Pass the request context to the serializer
-        kwargs['context'] = {'request': self.request}
-        return super().get_serializer(*args, **kwargs)
-    
+
+
+
+
+
+

@@ -2,6 +2,8 @@ from shop.models.utils import *
 import random
 from accounts.models.user_models import User
 from django.db.models import Avg
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 
 class Product(models.Model):
@@ -11,15 +13,11 @@ class Product(models.Model):
     description = models.TextField()
     regular_price = models.DecimalField(max_digits=10, decimal_places=2)
     sale_price = models.DecimalField(max_digits=10, decimal_places=2)
-    sizes = models.JSONField(null=True, blank=True)
-    colors = models.JSONField(null=True, blank=True)
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True)
     sub_category = models.ForeignKey('SubCategory', on_delete=models.SET_NULL, null=True)
     gender = models.CharField(max_length=50, null=True, blank=True)
     product_code = models.CharField(max_length=50, null=True, blank=True)
     product_sku = models.CharField(max_length=50, null=True, blank=True)
-    tags = models.JSONField(null=True, blank=True)
-    quantity = models.IntegerField(default=0)
     in_stock = models.BooleanField(default=True)
     status = models.BooleanField(default=True)
     liked_by = models.ManyToManyField(User, related_name='liked_products', blank=True)
@@ -41,17 +39,13 @@ class Product(models.Model):
         Updates the average rating of the product based on its reviews.
         """
         avg_rating = self.reviews.aggregate(Avg('rating'))['rating__avg']
-        self.average_rating = avg_rating if avg_rating else 0.0
+        self.average_rating = round(avg_rating, 1) if avg_rating else 0.0
         self.save()
             
     def save(self, *args, **kwargs):
         if not self.product_id:
             self.product_id = self.generate_unique_id()
-        if not self.slug:
-            self.slug = slugify(self.name)
-
-        # Set in_stock based on quantity
-        self.in_stock = self.quantity > 0
+        self.slug = slugify(self.name)
 
         super(Product, self).save(*args, **kwargs)
 
@@ -70,8 +64,23 @@ class ProductImage(models.Model):
 
 
 class Inventory(models.Model):
-    product = models.OneToOneField(Product, on_delete=models.CASCADE)
-    stock_quantity = models.PositiveIntegerField(default=0)
+    product = models.ForeignKey(Product, related_name='inventory', on_delete=models.CASCADE)
+    color = models.CharField(max_length=50, blank=True)
+    size = models.CharField(max_length=10, blank=True)
+    quantity = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('product', 'color', 'size')
 
     def __str__(self):
-        return f'{self.product.name} - {self.stock_quantity} items in stock'
+        return f"{self.product.name} - {self.color} - {self.size}"
+
+
+# Signal to update `in_stock` field in Product when Inventory changes
+@receiver(post_save, sender=Inventory)
+@receiver(post_delete, sender=Inventory)
+def update_product_in_stock(sender, instance, **kwargs):
+    product = instance.product
+    total_quantity = product.inventory.aggregate(total=models.Sum('quantity'))['total']
+    product.in_stock = total_quantity > 0 if total_quantity else False
+    product.save()

@@ -16,6 +16,8 @@ urlpatterns = [
 
     path('sub-categories/', SubCategoryAPIView.as_view(), name='sub-categories'),
     path('all-sub-categories/', AllSubCategoryAPIView.as_view(), name='all-sub-categories'),
+    path('subcategory-by-category/<slug:category_slug>/', SubCategoryByCategoryAPIView.as_view(), name='subcategory-by-category'),
+    path('category-subcategory/', CategorySubcategoryListAPIView.as_view(), name='category-subcategory'),
     path('sub-category-create/', SubCategoryAPIView.as_view(), name='sub-category-create'),
     path('sub-category-update/<slug:slug>', SubCategoryAPIView.as_view(), name='sub-category-update'),
     path('sub-category-delete/<slug:slug>', SubCategoryAPIView.as_view(), name='sub-category-delete'),
@@ -41,6 +43,11 @@ urlpatterns = [
     path('get-product-review/<int:product_id>/', ReviewAPIView.as_view(), name='get-product-review'),
     path('product-filter/', ProductFilterView.as_view(), name='product-filter'),
 
+    path('checkout/', CheckoutAPIView.as_view(), name='checkout'),
+    path('add-address/', AddAddressAPIView.as_view(), name='add-address'),
+    path('update-address/<int:address_id>/', AddAddressAPIView.as_view(), name='update-address'),
     path('create-order/', CreateOrderAPIView.as_view(), name='create-order'),
+    path('buy-now/', BuyNowAPIView.as_view(), name='buy-now'),
+    path('checkout-buy-now/', BuyNowAPIView.as_view(), name='checkout-buy-now'),
     path('get-order-details/', GetUserOrderAPIView.as_view(), name='get-order-details')
 ]

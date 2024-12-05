@@ -1,3 +1,5 @@
+from collections import defaultdict
+from django.db.models import Count
 from shop.views.utils import *
 from django.db.models import Q
 
@@ -32,6 +34,20 @@ class ReviewAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
         
+        # Check if the user has ordered the product with status 'Delivered'
+        review_permission = OrderItem.objects.filter(
+            order__user=request.user,
+            order__status="Delivered",
+            product=product
+        ).exists()
+
+
+        has_review = Review.objects.filter(product=product, user=request.user).exists()
+
+        if has_review:
+            review_permission = False
+
+        
         reviews = Review.objects.filter(product=product).order_by('-created_at')
         
         paginator = PageNumberPagination()
@@ -41,11 +57,29 @@ class ReviewAPIView(APIView):
 
         serializer = ReviewSerializer(paginated_categories, many=True)
 
+        # Calculate rating distribution
+        rating_counts = (
+            reviews.values("rating")
+            .annotate(count=Count("rating"))
+            .order_by("-rating")
+        )
+        rating_map = {5: "Excellent", 4: "VeryGood", 3: "Good", 2: "Average", 1: "Poor"}
+        rating_summary = defaultdict(int)
+        for data in rating_counts:
+            rating_summary[rating_map[data["rating"]]] = data["count"]
+
+        # Fill missing ratings with 0
+        for key in rating_map.values():
+            rating_summary[key] = rating_summary.get(key, 0)
+
         return paginator.get_paginated_response(
             {
                 "product": product.name,
                 "reviews": serializer.data,
+                "review_permission": review_permission,
+                "rating_summary": dict(rating_summary),
                 "current_page": paginator.page.number,
+                "total_pages": paginator.page.paginator.num_pages,
                 "page_size": paginator.page_size,
                 "status_code": status.HTTP_200_OK,
             }

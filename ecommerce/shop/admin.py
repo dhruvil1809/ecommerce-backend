@@ -48,7 +48,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 # Admin for Inventory to manage product stock
 class InventoryAdmin(admin.ModelAdmin):
-    list_display = ('product', 'stock_quantity')
+    list_display = ('product', 'quantity', 'color', 'size')
     search_fields = ('product__name',)
 
 # Registering all models with their respective admins
@@ -59,4 +59,3 @@ admin.site.register(Order, OrderAdmin)
 admin.site.register(Payment)
 admin.site.register(Inventory, InventoryAdmin)
 admin.site.register(Cart, CartAdmin)
-admin.site.register(Shipping, ShippingAdmin)
