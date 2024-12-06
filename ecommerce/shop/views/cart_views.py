@@ -57,7 +57,8 @@ class CartAPIView(APIView):
                 )
 
             # Check if requested quantity exceeds available stock
-            if quantity > inventory.quantity:
+            main_inventory = Inventory.objects.get(product=product, color=color, size=size)
+            if quantity > main_inventory.quantity:
                 return Response(
                     {
                         "errors": {
@@ -196,7 +197,8 @@ class CartItemAPIView(APIView):
             )
 
         # Check if the updated quantity exceeds available stock
-        if new_quantity > inventory.quantity:
+        main_inventory = Inventory.objects.get(product=product, color=color, size=size)
+        if new_quantity > main_inventory.quantity:
             return Response(
                 {
                     "errors": {

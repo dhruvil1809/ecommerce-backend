@@ -204,7 +204,8 @@ class BuyNowAPIView(APIView):
             )
 
         # Check if there is enough stock for the product
-        if product.quantity < quantity:
+        main_inventory = Inventory.objects.get(product=product, color=color, size=size)
+        if main_inventory.quantity < quantity:
             return Response(
                 {
                     "errors": {
@@ -402,7 +403,8 @@ class CreateOrderAPIView(APIView):
                 )
 
             # Check if there's enough stock
-            if item.quantity > inventory.quantity:
+            main_inventory = Inventory.objects.get(product=item.product, color=item.color, size=item.size)
+            if item.quantity > main_inventory.quantity:
                 return Response(
                     {
                         "errors": {
