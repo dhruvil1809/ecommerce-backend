@@ -29,32 +29,78 @@ class GetSubCategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class ProductImageSerializer(serializers.ModelSerializer):
+class UpdateAttributeValueSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProductImage
+        model = AttributeValue
+        fields = ['id', 'var_title', 'color_code']
+        read_only_fields = ['attribute']
+
+class AttributeValueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AttributeValue
+        fields = ['id', 'attribute', 'var_title', 'color_code']
+
+class AttributeSerializer(serializers.ModelSerializer):
+    values = AttributeValueSerializer(many=True, read_only=True, source='filtered_values')
+
+    class Meta:
+        model = Attribute
+        fields = ['id', 'var_title', 'values']
+
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ['id', 'var_title', 'deleted']
+
+
+class VariantAttributeSerializer(serializers.ModelSerializer):
+    var_title = serializers.CharField(source='attribute.var_title', read_only=True)
+    value = serializers.SerializerMethodField()
+    attribute_id = serializers.CharField(source='attribute.id', read_only=True)
+
+    class Meta:
+        model = VariantAttribute
+        fields = ['id', 'attribute_id', 'var_title', 'value']
+
+    def get_value(self, obj):
+        value_data = {
+            "id": str(obj.value.id),  # Convert to string if needed
+            "var_title": obj.value.var_title,
+            "color_code": obj.value.color_code if obj.value.color_code else None,
+            "attribute_name": obj.attribute.var_title,
+            "attribute_id": str(obj.attribute.id),  # Include attribute_id from var_title
+        }
+        return value_data
+
+class VariantImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VariantImage
         fields = ['id', 'image']
 
-class InventorySerializer(serializers.ModelSerializer):
+class VariantSerializer(serializers.ModelSerializer):
+    variant_attributes = VariantAttributeSerializer(many=True, required=False)
+    variant_images = VariantImageSerializer(many=True, required=False)
+
     class Meta:
-        model = Inventory
-        fields = ['id', 'color', 'size', 'quantity']
+        model = Variant
+        fields = [
+            'id', 'product_code', 'product_sku', 'quantity',
+            'regular_price', 'sale_price', 'product_details', 'product_descriptions', 'variant_attributes', 'variant_images'
+        ]
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, read_only=True)
-    uploaded_images = serializers.ListField(
-        child=serializers.ImageField(), write_only=True, required=False
-    )
     is_liked_by_user = serializers.SerializerMethodField()
-    inventory = InventorySerializer(many=True)
+    variants = VariantSerializer(many=True, read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            'id', 'product_id', 'name', 'slug', 'description', 'regular_price',
-            'sale_price', 'category', 'sub_category','average_rating','is_liked_by_user',
-            'gender', 'product_code', 'product_sku', 'status', 'top_collection',
-            'created_at', 'updated_at', 'images', 'uploaded_images', 'inventory'
+            'id', 'product_id', 'name', 'slug', 'category', 'sub_category','average_rating','is_liked_by_user',
+            'gender', 'top_collection', 'in_stock', 'status', 'tags',
+            'created_at', 'updated_at', 'variants', 'has_variants'
         ]
 
     def get_is_liked_by_user(self, obj):
@@ -66,50 +112,32 @@ class ProductSerializer(serializers.ModelSerializer):
             return obj.liked_by.filter(id=user.id).exists()
         return False
 
-    def create(self, validated_data):
-        uploaded_images = validated_data.pop('uploaded_images', [])
-        inventory_data = validated_data.pop('inventory')
-        product = Product.objects.create(**validated_data)
+#     # def create(self, validated_data):
+#     #     product = Product.objects.create(**validated_data)
+
+#     #     return product
+
+#     # def update(self, instance, validated_data):
+#     #     uploaded_images = validated_data.pop('uploaded_images', [])
+#     #     instance = super().update(instance, validated_data)
         
-        # Save multiple images
-        for image in uploaded_images:
-            ProductImage.objects.create(product=product, image=image)
+#     #     if uploaded_images:
+#     #         # Optionally delete old images
+#     #         ProductImage.objects.filter(product=instance).delete()
 
-        for item in inventory_data:
-            Inventory.objects.create(product=product, **item)
-        
-        return product
+#     #         # Save new images
+#     #         for image in uploaded_images:
+#     #             ProductImage.objects.create(product=instance, image=image)
 
-    def update(self, instance, validated_data):
-        uploaded_images = validated_data.pop('uploaded_images', [])
-        nventory_data = validated_data.pop('inventory')
-        instance = super().update(instance, validated_data)
-        
-        if uploaded_images:
-            # Optionally delete old images
-            ProductImage.objects.filter(product=instance).delete()
-
-            # Save new images
-            for image in uploaded_images:
-                ProductImage.objects.create(product=instance, image=image)
-
-        if nventory_data:
-            # Delete old inventory
-            Inventory.objects.filter(product=instance).delete()
-
-            # Save new inventory
-            for item in nventory_data:
-                Inventory.objects.create(product=instance, **item)
-
-        return instance
+#     #     return instance
 
 
 
 class GetProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, read_only=True)
-    category = CategorySerializer(read_only=True)
-    sub_category = GetSubCategorySerializer(read_only=True)
-    inventory = InventorySerializer(many=True, read_only=True)
+    category = CategorySerializer()
+    sub_category = GetSubCategorySerializer() 
+    tags = TagSerializer(many=True, read_only=True)
+    variants = VariantSerializer(many=True,read_only=True)
     is_liked_by_user = serializers.SerializerMethodField()
 
     class Meta:
@@ -127,10 +155,11 @@ class GetProductSerializer(serializers.ModelSerializer):
 
 class CartItemSerializer(serializers.ModelSerializer):
     product = serializers.SlugRelatedField(slug_field='product_id', queryset=Product.objects.all())
+    variant = VariantSerializer(read_only=True)
 
     class Meta:
         model = CartItem
-        fields = ['id', 'cart', 'product', 'quantity', 'size', 'color', 'created_at', 'updated_at']
+        fields = ['id', 'cart', 'product', 'quantity', 'variant', 'created_at', 'updated_at']
         extra_kwargs = {'cart': {'required': False}}
 
 class CartSerializer(serializers.ModelSerializer):
@@ -142,11 +171,12 @@ class CartSerializer(serializers.ModelSerializer):
 
 
 class CartItemSerializer2(serializers.ModelSerializer):
-    product = ProductSerializer()
+    product = GetProductSerializer()
+    variant = VariantSerializer(read_only=True)
 
     class Meta:
         model = CartItem
-        fields = ['id', 'cart', 'product', 'quantity', 'size', 'color']
+        fields = ['id', 'cart', 'product', 'quantity', 'variant']
         extra_kwargs = {'cart': {'required': False}}
 
 class CartSerializer2(serializers.ModelSerializer):
@@ -203,24 +233,24 @@ class ReviewSerializer(serializers.ModelSerializer):
         return instance
     
 
-class OrderItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
-    class Meta:
-        model = OrderItem
-        fields = ['product', 'quantity', 'price', 'size', 'color']  # Customize the fields as needed
+# class OrderItemSerializer(serializers.ModelSerializer):
+#     product = GetProductSerializer(read_only=True)
+#     class Meta:
+#         model = OrderItem
+#         fields = ['product', 'quantity', 'price', 'size', 'color']  # Customize the fields as needed
 
-class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True)
+# class OrderSerializer(serializers.ModelSerializer):
+#     items = OrderItemSerializer(many=True)
 
-    class Meta:
-        model = Order
-        fields = ['order_id', 'status', 'total_amount', 'created_at', 'updated_at', 'items']
+#     class Meta:
+#         model = Order
+#         fields = ['order_id', 'status', 'total_amount', 'created_at', 'updated_at', 'items']
 
 
-class AddressSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Address
-        fields = ['id', 'address', 'city', 'state', 'country', 'postal_code', 'first_name', 'last_name', 'phone_number', 'is_default']
+# class AddressSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Address
+#         fields = ['id', 'address', 'city', 'state', 'country', 'postal_code', 'first_name', 'last_name', 'phone_number', 'is_default']
 
 
 

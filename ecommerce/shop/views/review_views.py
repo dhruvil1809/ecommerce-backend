@@ -21,13 +21,13 @@ class ReviewAPIView(APIView):
 
     def get(self, request, product_id):
 
-        product = Product.objects.get(id=product_id, deleted=False)
-
-        if not product:
+        try:
+            product = Product.objects.get(id=product_id, deleted=False)
+        except:
             return Response(
                 {
                     "errors": {
-                        "product": "Product does not exist.", 
+                        "error": "Product does not exist.", 
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -87,13 +87,13 @@ class ReviewAPIView(APIView):
 
     def post(self, request, product_id):
 
-        product = Product.objects.get(id=product_id, deleted=False)
-
-        if not product:
+        try:
+            product = Product.objects.get(id=product_id, deleted=False)
+        except:
             return Response(
                 {
                     "errors": {
-                        "product": "Product does not exist.", 
+                        "error": "Product does not exist.", 
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -105,7 +105,7 @@ class ReviewAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "authorization": "You can only review products you have ordered.",
+                        "error": "You can only review products you have ordered.",
                         "status_code": status.HTTP_200_OK
                         } 
                 },
@@ -117,7 +117,7 @@ class ReviewAPIView(APIView):
         if Review.objects.filter(product=product, user=request.user).exists():
             return Response(
                 {"errors": {
-                    "review": "You have already reviewed this product.",
+                    "error": "You have already reviewed this product.",
                     "status_code": status.HTTP_200_OK
                     }
                 },
@@ -132,7 +132,7 @@ class ReviewAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "rating": "Rating must be between 1 and 5.",
+                        "error": "Rating must be between 1 and 5.",
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -166,7 +166,7 @@ class ReviewAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "review": "Review does not exist for this product by the current user.",
+                        "error": "Review does not exist for this product by the current user.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -179,7 +179,7 @@ class ReviewAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                    "product": "Product does not exist.",
+                    "error": "Product does not exist.",
                     "status_code": status.HTTP_200_OK
                     }
                 },
@@ -191,7 +191,7 @@ class ReviewAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "authorization": "You can only update reviews for products you have ordered.",
+                        "error": "You can only update reviews for products you have ordered.",
                         "status_code": status.HTTP_200_OK
                         } 
                 },
@@ -205,7 +205,7 @@ class ReviewAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "rating": "Rating must be between 1 and 5.",
+                        "error": "Rating must be between 1 and 5.",
                         "status_code": status.HTTP_200_OK
                         }
                 },

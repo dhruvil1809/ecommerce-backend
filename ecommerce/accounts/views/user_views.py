@@ -138,7 +138,7 @@ class EmailVerifyCodeView(APIView):
                 return Response(
                 {
                     "errors": {
-                        "email": "Email not found.",
+                        "error": "Email not found.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -174,7 +174,7 @@ class VerifyCodeView(APIView):
                 return Response(
                 {
                     "errors": {
-                        "code": "Invalid verification code.",
+                        "error": "Invalid verification code.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -203,7 +203,7 @@ class ForgotPasswordResetAPIView(APIView):
                 return Response(
                     {
                         "errors": {
-                            "confirm_password": "New password and confirm password do not match.",
+                            "error": "New password and confirm password do not match.",
                             "status_code": status.HTTP_200_OK,
                         }
                     },
@@ -224,7 +224,7 @@ class ForgotPasswordResetAPIView(APIView):
                 return Response(
                     {
                         "errors": {
-                            "user": "User not found.",
+                            "error": "User not found.",
                             "status_code": status.HTTP_200_OK,
                         }
                     },
@@ -268,7 +268,7 @@ class GetUserAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "user": "User not found.",
+                        "error": "User not found.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -330,7 +330,7 @@ class ToggleUserActiveStatusAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "user": "User not found.",
+                        "error": "User not found.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },

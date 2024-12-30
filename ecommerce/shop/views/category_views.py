@@ -9,7 +9,7 @@ class CategoryAPIView(APIView):
         categories = Category.objects.filter(deleted=False)
 
         paginator = PageNumberPagination()
-        paginator.page_size = 2
+        paginator.page_size = 20
 
         paginated_categories = paginator.paginate_queryset(categories, request)
 
@@ -35,7 +35,7 @@ class CategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "name": "A category with this name already exists.",
+                        "error": "A category with this name already exists.",
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -46,7 +46,7 @@ class CategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "add_to_home": "You can only add up to 6 categories to the home.",
+                        "error": "You can only add up to 6 categories to the home.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -75,7 +75,7 @@ class CategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "category": "Category not found.", 
+                        "error": "Category not found.", 
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -90,7 +90,7 @@ class CategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "name": "A category with this name already exists.",
+                        "error": "A category with this name already exists.",
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -101,7 +101,7 @@ class CategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "add_to_home": "You can only add up to 6 categories to the home.",
+                        "error": "You can only add up to 6 categories to the home.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -130,7 +130,7 @@ class CategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "category": "Category not found.",
+                        "error": "Category not found.",
                         "status_code": status.HTTP_200_OK
                     }
                 },
@@ -199,11 +199,11 @@ class SubCategoryAPIView(APIView):
         category_id = request.data.get("category")
         name = request.data.get('name')
 
-        if not Category.objects.filter(id=category_id).exists():
+        if not Category.objects.filter(id=category_id, deleted=False).exists():
             return Response(
                 {
                     "errors": {
-                        "category": "Category does not exist.", 
+                        "error": "Category does not exist.", 
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -214,7 +214,7 @@ class SubCategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "name": "A subcategory with this name already exists.",
+                        "error": "A subcategory with this name already exists.",
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -243,7 +243,7 @@ class SubCategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "category": "SubCategory not found.", 
+                        "error": "SubCategory not found.", 
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -254,11 +254,11 @@ class SubCategoryAPIView(APIView):
         category_id = request.data.get("category")
         name = request.data.get('name')
 
-        if not Category.objects.filter(id=category_id).exists():
+        if not Category.objects.filter(id=category_id, deleted=False).exists():
             return Response(
                 {
                     "errors": {
-                        "category": "Category does not exist.", 
+                        "error": "Category does not exist.", 
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -269,7 +269,7 @@ class SubCategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "name": "A subcategory with this name already exists.",
+                        "error": "A subcategory with this name already exists.",
                         "status_code": status.HTTP_200_OK
                         }
                 },
@@ -298,7 +298,7 @@ class SubCategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "subcategory": "SubCategory not found.",
+                        "error": "SubCategory not found.",
                         "status_code": status.HTTP_200_OK
                     }
                 },
@@ -358,7 +358,7 @@ class SubCategoryByCategoryAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "category": "Category not found.",
+                        "error": "Category not found.",
                         "status_code": status.HTTP_200_OK
                     }
                 },

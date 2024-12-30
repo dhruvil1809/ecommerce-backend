@@ -50,9 +50,9 @@ class CustomRenderer(renderers.JSONRenderer):
                 error_details = {}
                 for field, errors in data['errors'].items():
                     if isinstance(errors, list) and errors:
-                        error_details[field] = f"{field.replace('_', ' ').capitalize()} is required."
+                        error_details['error'] = f"{field.replace('_', ' ').capitalize()} is required."
                     else:
-                        error_details[field] = f"{field.replace('_', ' ').capitalize()} is required."
+                        error_details['error'] = f"{field.replace('_', ' ').capitalize()} is required."
                     
                 response['errors'] = error_details
                 response['data'] = None
@@ -64,9 +64,9 @@ class CustomRenderer(renderers.JSONRenderer):
                 error_details = {}
                 for field, errors in data['errors'].items():
                     if isinstance(errors, list) and errors:
-                        error_details[field] = f"{errors[0]}"
+                        error_details['error'] = f"{errors[0]}"
                     else:
-                        error_details[field] = f"{str(errors)}"
+                        error_details['error'] = f"{str(errors)}"
 
                 response['errors'] = error_details
                 response['data'] = None
@@ -78,9 +78,9 @@ class CustomRenderer(renderers.JSONRenderer):
                 error_details = {}
                 for field, errors in data['errors'].items():
                     if isinstance(errors, list) and errors:
-                        error_details[field] = f"{errors[0]}"
+                        error_details['error'] = f"{errors[0]}"
                     else:
-                        error_details[field] = f"{str(errors)}"
+                        error_details['error'] = f"{str(errors)}"
 
                 response['errors'] = error_details
                 response['data'] = None

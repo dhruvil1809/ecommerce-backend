@@ -49,7 +49,7 @@ class PaymentVerificationAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "order": "Order not found.",
+                        "error": "Order not found.",
                         "status_code": status.HTTP_200_OK
                     }
                 },
@@ -104,7 +104,7 @@ class PaymentVerificationAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "payment": "Payment failed.",
+                        "error": "Payment failed.",
                         "status_code": status.HTTP_200_OK
                     }
                 },

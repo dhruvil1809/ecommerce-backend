@@ -22,84 +22,64 @@ class CartAPIView(APIView):
         item_data = request.data
 
         product_id = item_data.get('product')
+        variant_id = item_data.get('variant')
         quantity = int(item_data.get('quantity', 1))
-        size = item_data.get('size')
-        color = item_data.get('color')
 
         try:
             product = Product.objects.get(product_id=product_id)
+            variant = Variant.objects.get(id=variant_id, product=product)
 
-            # Find the matching inventory entry
             try:
-                inventory = Inventory.objects.get(product=product, size=size)
-            except Inventory.DoesNotExist:
+                variant = Variant.objects.get(id=variant_id, product=product)
+            except Variant.DoesNotExist:
                 return Response(
                     {
                         "errors": {
-                            "inventory": f"{size} size is not available.",
+                            "error": "Variant not found for the selected product.",
                             "status_code": status.HTTP_200_OK,
                         }
                     },
                     status=status.HTTP_200_OK,
                 )
+
             
-            try:
-                inventory = Inventory.objects.get(product=product, color=color)
-            except Inventory.DoesNotExist:
+
+            # Check if the requested quantity exceeds the available stock
+            if quantity > variant.quantity:
                 return Response(
                     {
                         "errors": {
-                            "inventory": f"{color} size is not available.",
+                            "error": f"Only {variant.quantity} units are available in stock.",
                             "status_code": status.HTTP_200_OK,
                         }
                     },
                     status=status.HTTP_200_OK,
                 )
 
-            # Check if requested quantity exceeds available stock
-            main_inventory = Inventory.objects.get(product=product, color=color, size=size)
-            if quantity > main_inventory.quantity:
-                return Response(
-                    {
-                        "errors": {
-                            "inventory": f"Only {inventory.quantity} units are available in stock.",
-                            "status_code": status.HTTP_200_OK,
-                        }
-                    },
-                    status=status.HTTP_200_OK,
-                )
-
-            # Check if the cart item with the same size and color already exists
+            # Check if the cart item with the same variant already exists
             try:
-                cart_item = CartItem.objects.get(
-                    cart=cart,
-                    product=product,
-                    size=size,
-                    color=color,
-                )
+                cart_item = CartItem.objects.get(cart=cart, product=product, variant=variant)
 
-                # Update the cart item with the new total quantity
                 total_quantity = cart_item.quantity + quantity
 
-                # Ensure total quantity does not exceed available stock
-                if total_quantity > inventory.quantity:
-                    available = inventory.quantity - cart_item.quantity
+                if total_quantity > variant.quantity:
+                    available = variant.quantity - cart_item.quantity
                     if available > 0:
                         return Response(
                             {
                                 "errors": {
-                                    "inventory": f"Only {available} additional units can be added.",
+                                    "error": f"Only {available} additional units can be added.",
                                     "status_code": status.HTTP_200_OK,
                                 }
                             },
                             status=status.HTTP_200_OK,
                         )
-                    
+
                     return Response(
                         {
                             "errors": {
-                                "inventory": f"0 units available in stock.",
-                                "status_code": status.HTTP_200_OK
+                                "error": f"0 units available in stock.",
+                                "status_code": status.HTTP_200_OK,
                             }
                         },
                         status=status.HTTP_200_OK,
@@ -113,7 +93,7 @@ class CartAPIView(APIView):
                 item_data['cart'] = cart.id
                 item_serializer = CartItemSerializer(data=item_data)
                 if item_serializer.is_valid():
-                    item_serializer.save(cart=cart, product=product)
+                    item_serializer.save(cart=cart, product=product, variant=variant)
                 else:
                     return Response(
                         {"errors": item_serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST},
@@ -124,7 +104,7 @@ class CartAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "product": "Product not found.",
+                        "error": "Product not found.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -132,12 +112,12 @@ class CartAPIView(APIView):
             )
 
         return Response(
-                {
-                    "message": "Cart updated successfully.",
-                    "status_code": status.HTTP_200_OK,
-                },
-                status=status.HTTP_200_OK,
-            )
+            {
+                "message": "Cart updated successfully.",
+                "status_code": status.HTTP_200_OK,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 
@@ -154,7 +134,7 @@ class CartItemAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "product": "Cart item not found.",
+                        "error": "Cart item not found.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
@@ -166,55 +146,42 @@ class CartItemAPIView(APIView):
 
         # Fetch the requested updates
         new_quantity = int(request.data.get('quantity', cart_item.quantity))
-        size = request.data.get('size', cart_item.size)
-        color = request.data.get('color', cart_item.color)
+        variant_id = request.data.get('variant')
 
-        # Find the corresponding inventory entry
+        # Find the corresponding variant
         try:
-            inventory = Inventory.objects.get(product=product, size=size)
-        except Inventory.DoesNotExist:
+            variant = Variant.objects.get(id=variant_id, product=product)
+        except Variant.DoesNotExist:
             return Response(
                 {
                     "errors": {
-                        "inventory": f"{size} size is not available.",
+                        "error": f"Variant with id {variant_id} is not available for this product.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
                 status=status.HTTP_200_OK,
             )
         
-        try:
-            inventory = Inventory.objects.get(product=product, color=color)
-        except Inventory.DoesNotExist:
+
+        # Check if the updated quantity exceeds available stock of the variant
+        if new_quantity > variant.quantity:
             return Response(
                 {
                     "errors": {
-                        "inventory": f"{color} color is not available.",
+                        "error": f"Only {variant.quantity} units are available in stock for this variant.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
                 status=status.HTTP_200_OK,
             )
 
-        # Check if the updated quantity exceeds available stock
-        main_inventory = Inventory.objects.get(product=product, color=color, size=size)
-        if new_quantity > main_inventory.quantity:
-            return Response(
-                {
-                    "errors": {
-                        "inventory": f"Only {inventory.quantity} units are available in stock.",
-                        "status_code": status.HTTP_400_BAD_REQUEST,
-                    }
-                },
-                status=status.HTTP_200_OK,
-            )
 
         # Update cart item with validated data
         data = {
             "quantity": new_quantity,
-            "size": size,
-            "color": color,
+            "variant": variant.id,
         }
+
         serializer = CartItemSerializer(cart_item, data=data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
@@ -222,7 +189,7 @@ class CartItemAPIView(APIView):
                 {
                     "message": "Cart item updated successfully.",
                     "cart_item": serializer.data,
-                    "status_code": status.HTTP_200_OK,
+                    "status_code": status.HTTP_200_OK,  
                 },
                 status=status.HTTP_200_OK,
             )
@@ -250,7 +217,7 @@ class CartItemAPIView(APIView):
             return Response(
                 {
                     "errors": {
-                        "product": "Cart item not found.",
+                        "error": "Cart item not found.",
                         "status_code": status.HTTP_200_OK,
                     }
                 },
